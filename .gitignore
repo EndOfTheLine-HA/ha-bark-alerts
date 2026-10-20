@@ -6,3 +6,12 @@ __pycache__/
 .coverage
 htmlcov/
 uv.lock
+.env
+.env.*
+!.env.example
+secrets.yaml
+*.db
+*.sqlite*
+*.backup
+*.bak
+.storage/
