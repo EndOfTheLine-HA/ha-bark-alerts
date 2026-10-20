@@ -70,8 +70,10 @@ logs, action traces, and local config exports still require private handling.
   reporting, cancellation, raw-code handling, and diagnostics redaction.
 - HACS layout, metadata, translation parity, and absence of embedded private
   addresses or real RF payloads in the integration source.
+- Local 256/512-pixel PNG brand assets generated from the included original SVG.
+  The community icon is not an official Frigate, Broadlink, or collar logo.
 
-The test suite currently contains 56 passing tests. A native HA HTTP-library
+The test suite currently contains 58 passing tests. A native HA HTTP-library
 deprecation warning appears in the lifecycle test; it is not an RF or integration
 failure. Tests do not contact a physical transmitter.
 

@@ -123,8 +123,12 @@ uv run --python 3.14 --with homeassistant==2026.10.2 --with pytest --with pytest
 
 Tests use isolated Home Assistant registries/state events and mocked remote
 services. No real transmitter is contacted. GitHub workflows are included for
-pytest, Ruff, HACS, and Hassfest; remote checks require publication. See
+pytest, Ruff, HACS, and Hassfest. See the latest commit's Actions results and
 [AUDIT.md](AUDIT.md) for the verification boundary.
+
+The original community icon source is `custom_components/bark_alerts/brand/icon.svg`.
+Its 256/512-pixel PNG renders are included for HACS branding; it is not an
+official manufacturer logo.
 
 MIT licensed; community software, not affiliated with Frigate, Broadlink, or any
 collar manufacturer. HACS custom-repository installation and default-catalog

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Bark Alerts community icon</title>
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="#0f766e"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M176 324h160c-24-25-30-45-30-96a50 50 0 0 0-100 0c0 51-6 71-30 96Z" stroke-width="22"/>
+    <path d="M239 359a20 20 0 0 0 34 0M256 154v-16" stroke-width="22"/>
+    <path d="M157 198a104 104 0 0 0 0 95M355 198a104 104 0 0 1 0 95" stroke-width="16"/>
+    <path d="M124 175a147 147 0 0 0 0 141M388 175a147 147 0 0 1 0 141" stroke-width="14"/>
+  </g>
+</svg>
