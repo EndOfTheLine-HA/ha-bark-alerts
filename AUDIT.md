@@ -72,8 +72,14 @@ logs, action traces, and local config exports still require private handling.
   addresses or real RF payloads in the integration source.
 - Local 256/512-pixel PNG brand assets generated from the included original SVG.
   The community icon is not an official Frigate, Broadlink, or collar logo.
+- Version 0.1.1 compatibility regressions cover `B1` raw-code input, optional
+  `b64:` prefixes, longer synthetic packets, and setup without transmission.
+  Malformed framing, oversized data, IR packets, and unknown headers remain
+  rejected. No real captured codes are used as fixtures.
+- Compatibility checks use synthetic packet fixtures only; no user-owned command
+  value is stored in source, fixtures, logs, or diagnostics.
 
-The test suite currently contains 58 passing tests. A native HA HTTP-library
+The test suite currently contains 68 passing tests. A native HA HTTP-library
 deprecation warning appears in the lifecycle test; it is not an RF or integration
 failure. Tests do not contact a physical transmitter.
 

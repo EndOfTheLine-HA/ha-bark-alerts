@@ -19,9 +19,12 @@ from custom_components.bark_alerts.const import (
     CONF_DEVICE,
     CONF_FALLBACK,
     CONF_REPEATS,
+    CONF_RF_CODE,
     DEFAULTS,
     DOMAIN,
 )
+
+from .test_validation import packet
 
 
 def flow(hass):
@@ -58,6 +61,25 @@ async def test_camera_device_command_wizard_sends_nothing(hass, rig):
 
 async def test_no_cameras_is_actionable(hass):
     assert (await flow(hass).async_step_user())["reason"] == "no_cameras"
+
+
+@pytest.mark.parametrize("prefix", ["", "b64:"])
+async def test_b1_raw_command_setup_sends_nothing(hass, rig, prefix):
+    wizard = flow(hass)
+    await wizard.async_step_user({CONF_CAMERA: rig.selected["camera"].entity_id})
+    await wizard.async_step_broadlink({CONF_BROADLINK: rig.device.id})
+    result = await wizard.async_step_command(
+        {
+            CONF_COMMAND_MODE: "raw",
+            CONF_BEEP_ONLY: True,
+            CONF_RF_CODE: prefix + packet(0xB1),
+        }
+    )
+    assert result["step_id"] == "behavior"
+    result = await wizard.async_step_behavior(dict(DEFAULTS))
+    assert result["type"] == "create_entry"
+    assert result["data"][CONF_RF_CODE] == "b64:" + packet(0xB1)
+    assert not rig.sends and not rig.learns
 
 
 async def test_missing_bark_does_not_borrow_another_camera(hass, rig):

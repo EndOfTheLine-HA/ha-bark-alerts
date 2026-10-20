@@ -45,7 +45,7 @@ def normalize_command(data: dict[str, Any]) -> dict[str, Any]:
     if (
         len(packet) < 8
         or len(packet) > 4096
-        or packet[0] not in (0xB2, 0xB4, 0xD7)
+        or packet[0] not in (0xB1, 0xB2, 0xB4, 0xD7)
         or not 2 <= int.from_bytes(packet[2:4], "little") <= len(packet) - 4
     ):
         raise DiscoveryError("invalid_rf_code")

@@ -3,11 +3,12 @@
 import json
 import re
 import struct
+import tomllib
 from pathlib import Path
 
 import pytest
 
-from custom_components.bark_alerts.const import DEFAULTS, OUTCOMES
+from custom_components.bark_alerts.const import DEFAULTS, OUTCOMES, VERSION
 
 ROOT = Path(__file__).parents[1]
 PACKAGE = ROOT / "custom_components" / "bark_alerts"
@@ -17,7 +18,9 @@ def test_metadata_and_translations():
     manifest = json.loads((PACKAGE / "manifest.json").read_text(encoding="utf-8"))
     hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
     assert manifest["domain"] == "bark_alerts" and manifest["config_flow"] is True
-    assert manifest["requirements"] == [] and manifest["version"] == "0.1.0"
+    assert manifest["requirements"] == [] and manifest["version"] == VERSION == "0.1.1"
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert project["project"]["version"] == VERSION
     assert hacs["homeassistant"] == "2026.10.2"
     strings = json.loads((PACKAGE / "strings.json").read_text(encoding="utf-8"))
     assert strings == json.loads(

@@ -31,6 +31,10 @@ Optional animal-sound fallback additionally requires enabled `animal` audio and
 
 ## Install with HACS
 
+Version **0.1.1** fixes rejection of raw RF captures with a `B1` packet header.
+See [CHANGELOG.md](CHANGELOG.md). If updating from 0.1.0, restart Home Assistant
+and reopen setup after the HACS download; an already-open flow uses old code.
+
 1. Add `https://github.com/EndOfTheLine-HA/ha-bark-alerts` to HACS custom
    repositories, category **Integration**, and download **Bark Alerts**.
 2. Restart Home Assistant.
