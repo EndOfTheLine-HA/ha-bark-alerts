@@ -31,9 +31,10 @@ Optional animal-sound fallback additionally requires enabled `animal` audio and
 
 ## Install with HACS
 
-Version **0.1.1** fixes rejection of raw RF captures with a `B1` packet header.
-See [CHANGELOG.md](CHANGELOG.md). If updating from 0.1.0, restart Home Assistant
-and reopen setup after the HACS download; an already-open flow uses old code.
+Version **0.1.2** adds learned-device and command dropdowns and separates raw-code
+setup from named-command setup. It includes the 0.1.1 `B1` packet fix. See
+[CHANGELOG.md](CHANGELOG.md). After updating, restart Home Assistant and reopen
+setup; an already-open flow uses old code.
 
 1. Add `https://github.com/EndOfTheLine-HA/ha-bark-alerts` to HACS custom
    repositories, category **Integration**, and download **Bark Alerts**.
@@ -41,16 +42,26 @@ and reopen setup after the HACS download; an already-open flow uses old code.
 3. Add **Bark Alerts** through **Settings → Devices & services**.
 4. Choose your **Frigate camera**, then your **Broadlink device**.
 5. Choose a command source:
-   - **Named command:** enter the device/group and beep command names already
-     learned by Broadlink. To learn a new command, enter the names to use and
-     press **Learn beep (receive RF)** on the new integration device afterward.
-   - **Raw RF code:** paste your own captured Broadlink base64 RF packet. The
-     optional `b64:` prefix is accepted. The field is masked; the code remains
+   - **Named command:** choose a saved device/group from the dropdown, then
+     choose its beep command on the next screen. Only names from the selected
+     Broadlink transmitter are listed. Both dropdowns also accept a typed name:
+     for a new command, enter the names to use and press **Learn beep (receive
+     RF)** on the new integration device afterward.
+   - **Raw RF code:** the next screen shows only the private code field and
+     beep-only confirmation. Paste your own captured Broadlink base64 RF packet.
+     The optional `b64:` prefix is accepted. The field is masked; the code remains
      in your local HA config entry, not this repository.
 6. Confirm it is beep-only and review the default settings.
 
-The wizard does not send, learn, or physically test anything. It does not inspect
-Broadlink's private code storage to list or verify learned commands.
+The wizard does not send, learn, or physically test anything. The dropdowns use a
+read-only lookup of the selected remote's local Broadlink version-1 code store;
+only device/group and command names reach the forms. The lookup never changes
+that store, copies packets into this integration, or reads other transmitters'
+stores. It is a compatibility adapter, not a public Broadlink listing API.
+Missing, unreadable, oversized, or unrecognized stores fall back to typed names.
+Commands saved only in the Broadlink app, or raw codes embedded directly in HA
+scripts, do **not** appear in these dropdowns. A name does not prove a command is
+RF-compatible or beep-only; verify its effect before confirming it.
 
 ## First use and controls
 

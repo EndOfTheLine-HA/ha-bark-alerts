@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import probatio
 import pytest
 import voluptuous as vol
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import selector
 
 from custom_components.bark_alerts.config_flow import BarkAlertsFlow, behavior_schema
 from custom_components.bark_alerts.const import (
@@ -35,6 +38,18 @@ def flow(hass):
     return instance
 
 
+async def command_step(hass, rig, mode="learned"):
+    wizard = flow(hass)
+    await wizard.async_step_user({CONF_CAMERA: rig.selected["camera"].entity_id})
+    await wizard.async_step_broadlink({CONF_BROADLINK: rig.device.id})
+    result = await wizard.async_step_command({CONF_COMMAND_MODE: mode})
+    return wizard, result
+
+
+def field(result, name):
+    return result["data_schema"].schema[name]
+
+
 async def test_camera_device_command_wizard_sends_nothing(hass, rig):
     wizard = flow(hass)
     assert (await wizard.async_step_user())["step_id"] == "user"
@@ -44,10 +59,12 @@ async def test_camera_device_command_wizard_sends_nothing(hass, rig):
     assert result["step_id"] == "broadlink"
     result = await wizard.async_step_broadlink({CONF_BROADLINK: rig.device.id})
     assert result["step_id"] == "command"
-    result = await wizard.async_step_command(
+    result = await wizard.async_step_command({CONF_COMMAND_MODE: "learned"})
+    assert result["step_id"] == "learned_device"
+    result = await wizard.async_step_learned_device({CONF_DEVICE: "Example collar"})
+    assert result["step_id"] == "learned_command"
+    result = await wizard.async_step_learned_command(
         {
-            CONF_COMMAND_MODE: "learned",
-            CONF_DEVICE: "Example collar",
             CONF_COMMAND: "beep",
             CONF_BEEP_ONLY: True,
         }
@@ -56,6 +73,8 @@ async def test_camera_device_command_wizard_sends_nothing(hass, rig):
     result = await wizard.async_step_behavior(dict(DEFAULTS))
     assert result["type"] == "create_entry"
     assert result["options"][CONF_REPEATS] == 1
+    assert result["data"][CONF_DEVICE] == "Example collar"
+    assert CONF_RF_CODE not in result["data"]
     assert not rig.sends and not rig.learns
 
 
@@ -65,12 +84,11 @@ async def test_no_cameras_is_actionable(hass):
 
 @pytest.mark.parametrize("prefix", ["", "b64:"])
 async def test_b1_raw_command_setup_sends_nothing(hass, rig, prefix):
-    wizard = flow(hass)
-    await wizard.async_step_user({CONF_CAMERA: rig.selected["camera"].entity_id})
-    await wizard.async_step_broadlink({CONF_BROADLINK: rig.device.id})
-    result = await wizard.async_step_command(
+    wizard, result = await command_step(hass, rig, "raw")
+    assert result["step_id"] == "raw_command"
+    assert set(result["data_schema"].schema) == {CONF_RF_CODE, CONF_BEEP_ONLY}
+    result = await wizard.async_step_raw_command(
         {
-            CONF_COMMAND_MODE: "raw",
             CONF_BEEP_ONLY: True,
             CONF_RF_CODE: prefix + packet(0xB1),
         }
@@ -107,13 +125,10 @@ async def test_disabled_bark_is_rejected(hass, rig):
 
 
 async def test_fallback_requires_both_same_camera_sources(hass, rig):
-    wizard = flow(hass)
-    await wizard.async_step_user({CONF_CAMERA: rig.selected["camera"].entity_id})
-    await wizard.async_step_broadlink({CONF_BROADLINK: rig.device.id})
-    await wizard.async_step_command(
+    wizard, _ = await command_step(hass, rig)
+    await wizard.async_step_learned_device({CONF_DEVICE: "example"})
+    await wizard.async_step_learned_command(
         {
-            CONF_COMMAND_MODE: "learned",
-            CONF_DEVICE: "example",
             CONF_COMMAND: "beep",
             CONF_BEEP_ONLY: True,
         }
@@ -127,3 +142,101 @@ async def test_fallback_requires_both_same_camera_sources(hass, rig):
 def test_behavior_bounds(key, value):
     with pytest.raises((vol.Invalid, probatio.Invalid)):
         behavior_schema({})({**DEFAULTS, key: value})
+
+
+async def test_saved_device_and_dependent_command_dropdowns(hass, rig, learned_storage):
+    path = learned_storage(
+        {
+            "Other device": {"unrelated": "private synthetic payload"},
+            "Example collar": {"beep": "private synthetic beep packet"},
+        }
+    )
+    before = path.read_bytes()
+    # Another transmitter must never contribute choices.
+    learned_storage({"Wrong transmitter": {"wrong": "synthetic"}}, "000000000002")
+    wizard, result = await command_step(hass, rig)
+    device = field(result, CONF_DEVICE)
+    assert isinstance(device, selector.SelectSelector)
+    assert device.config["mode"] == "dropdown" and device.config["custom_value"]
+    assert device.config["options"] == ["Example collar", "Other device"]
+    result = await wizard.async_step_learned_device({CONF_DEVICE: "Example collar"})
+    command = field(result, CONF_COMMAND)
+    assert isinstance(command, selector.SelectSelector)
+    assert command.config["options"] == ["beep"]
+    assert command.config["custom_value"]
+    assert not field(result, CONF_BEEP_ONLY)(False)
+    result = await wizard.async_step_learned_command(
+        {CONF_COMMAND: "beep", CONF_BEEP_ONLY: True}
+    )
+    result = await wizard.async_step_behavior(dict(DEFAULTS))
+    assert result["data"][CONF_DEVICE] == "Example collar"
+    assert result["data"][CONF_COMMAND] == "beep"
+    assert "private synthetic" not in repr(result["data"])
+    assert path.read_bytes() == before
+    assert not rig.sends and not rig.learns
+
+
+async def test_dropdowns_allow_new_names_with_no_storage(hass, rig):
+    wizard, result = await command_step(hass, rig)
+    assert field(result, CONF_DEVICE).config["options"] == []
+    result["data_schema"]({CONF_DEVICE: "New collar"})
+    result = await wizard.async_step_learned_device({CONF_DEVICE: "New collar"})
+    assert field(result, CONF_COMMAND).config["options"] == []
+    result["data_schema"]({CONF_COMMAND: "beep", CONF_BEEP_ONLY: True})
+    result = await wizard.async_step_learned_command(
+        {CONF_COMMAND: "beep", CONF_BEEP_ONLY: True}
+    )
+    assert result["step_id"] == "behavior"
+    assert not rig.sends and not rig.learns
+
+
+async def test_confirmation_error_preserves_command_choices(hass, rig, learned_storage):
+    learned_storage({"Example": {"beep": "synthetic"}})
+    wizard, _ = await command_step(hass, rig)
+    await wizard.async_step_learned_device({CONF_DEVICE: "Example"})
+    result = await wizard.async_step_learned_command(
+        {CONF_COMMAND: "beep", CONF_BEEP_ONLY: False}
+    )
+    assert result["errors"] == {"base": "beep_confirmation_required"}
+    assert field(result, CONF_COMMAND).config["options"] == ["beep"]
+    assert not rig.sends and not rig.learns
+
+
+@pytest.mark.parametrize("value", ["", " ", "b64:invalid", "x" * 101, None])
+async def test_invalid_device_name_does_not_advance(hass, rig, value):
+    wizard, _ = await command_step(hass, rig)
+    result = await wizard.async_step_learned_device({CONF_DEVICE: value})
+    assert result["step_id"] == "learned_device"
+    assert result["errors"] == {"base": "invalid_command"}
+    assert not rig.sends and not rig.learns
+
+
+async def test_raw_mode_never_reads_catalog_or_prefills_private_code(hass, rig):
+    with patch(
+        "custom_components.bark_alerts.config_flow.async_learned_commands",
+        side_effect=AssertionError("Raw setup must not read Broadlink storage"),
+    ):
+        wizard, result = await command_step(hass, rig, "raw")
+        result = await wizard.async_step_raw_command(
+            {CONF_RF_CODE: packet(), CONF_BEEP_ONLY: False}
+        )
+        assert result["errors"] == {"base": "beep_confirmation_required"}
+        assert set(result["data_schema"].schema) == {CONF_RF_CODE, CONF_BEEP_ONLY}
+        assert field(result, CONF_RF_CODE).config["type"] == "password"
+        assert packet() not in repr(result)
+        assert CONF_RF_CODE not in wizard._data
+    assert not rig.sends and not rig.learns
+
+
+async def test_switching_command_mode_discards_stale_private_code(hass, rig):
+    wizard, _ = await command_step(hass, rig, "raw")
+    await wizard.async_step_raw_command({CONF_RF_CODE: packet(), CONF_BEEP_ONLY: True})
+    assert CONF_RF_CODE in wizard._data
+    await wizard.async_step_command({CONF_COMMAND_MODE: "learned"})
+    assert CONF_RF_CODE not in wizard._data and CONF_BEEP_ONLY not in wizard._data
+
+
+async def test_invalid_mode_is_actionable(hass, rig):
+    wizard, _ = await command_step(hass, rig)
+    result = await wizard.async_step_command({CONF_COMMAND_MODE: "not-a-mode"})
+    assert result["errors"] == {"base": "invalid_command_mode"}

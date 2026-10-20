@@ -12,12 +12,27 @@ from custom_components.bark_alerts.const import (
     CONF_COMMAND_MODE,
     CONF_DEVICE,
     CONF_FALLBACK,
+    CONF_RF_CODE,
     DEFAULTS,
     DOMAIN,
 )
 
+from .test_validation import packet
 
-async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
+
+async def configure_named(hass, result, device):
+    for data in (
+        {CONF_COMMAND_MODE: "learned"},
+        {CONF_DEVICE: device},
+        {CONF_COMMAND: "beep", CONF_BEEP_ONLY: True},
+    ):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
+    assert result["step_id"] == "behavior"
+    return result
+
+
+async def test_real_flow_setup_platforms_options_and_unload(hass, rig, learned_storage):
+    learned_storage({"example": {"beep": "synthetic saved packet"}})
     # Source integrations are represented by isolated registries, never hardware.
     hass.config.components.add("broadlink")
     assert await async_setup_component(hass, "remote", {})
@@ -31,15 +46,7 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_BROADLINK: rig.device.id}
     )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            CONF_COMMAND_MODE: "learned",
-            CONF_DEVICE: "example",
-            CONF_COMMAND: "beep",
-            CONF_BEEP_ONLY: True,
-        },
-    )
+    result = await configure_named(hass, result, "example")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], dict(DEFAULTS)
     )
@@ -75,15 +82,7 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
         result["flow_id"], {CONF_BROADLINK: rig.device.id}
     )
     assert result["step_id"] == "command"
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            CONF_COMMAND_MODE: "learned",
-            CONF_DEVICE: "replacement",
-            CONF_COMMAND: "beep",
-            CONF_BEEP_ONLY: True,
-        },
-    )
+    result = await configure_named(hass, result, "replacement")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], dict(DEFAULTS)
     )
@@ -106,3 +105,50 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
     await hass.config_entries.async_unload(entry.entry_id)
     assert entry.state is ConfigEntryState.NOT_LOADED
     assert not rig.sends and not rig.learns
+
+
+async def test_real_raw_flow_setup_and_reconfigure_to_named(hass, rig):
+    hass.config.components.add("broadlink")
+    assert await async_setup_component(hass, "remote", {})
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    for data in (
+        {CONF_CAMERA: rig.selected["camera"].entity_id},
+        {CONF_BROADLINK: rig.device.id},
+        {CONF_COMMAND_MODE: "raw"},
+    ):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
+    assert result["step_id"] == "raw_command"
+    assert set(result["data_schema"].schema) == {CONF_RF_CODE, CONF_BEEP_ONLY}
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_RF_CODE: packet(0xB1), CONF_BEEP_ONLY: True}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], dict(DEFAULTS)
+    )
+    entry = result["result"]
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.data[CONF_RF_CODE] == "b64:" + packet(0xB1)
+    assert CONF_DEVICE not in entry.data and CONF_COMMAND not in entry.data
+    assert not entry.runtime_data.armed and entry.runtime_data.dry_run
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "reconfigure", "entry_id": entry.entry_id}
+    )
+    for data in (
+        {CONF_CAMERA: rig.selected["camera"].entity_id},
+        {CONF_BROADLINK: rig.device.id},
+    ):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
+    result = await configure_named(hass, result, "New group")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], dict(DEFAULTS)
+    )
+    assert result["reason"] == "reconfigured"
+    await hass.async_block_till_done()
+    assert entry.data[CONF_DEVICE] == "New group"
+    assert CONF_RF_CODE not in entry.data
+    assert not entry.runtime_data.armed and entry.runtime_data.dry_run
+    assert not rig.sends and not rig.learns
+    await hass.config_entries.async_unload(entry.entry_id)

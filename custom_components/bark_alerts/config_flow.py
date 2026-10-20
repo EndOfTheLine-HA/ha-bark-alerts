@@ -35,7 +35,8 @@ from .const import (
     MODE_RAW,
 )
 from .discovery import DiscoveryError, broadlink_remote, camera_sources
-from .validation import normalize_command
+from .learned_commands import async_learned_commands
+from .validation import normalize_command, normalize_command_name
 
 
 def behavior_schema(defaults: dict[str, Any]) -> vol.Schema:
@@ -143,16 +144,19 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_command(self, user_input=None) -> ConfigFlowResult:
+        """Choose a mode before showing only that mode's fields."""
         errors = {}
         if user_input is not None:
-            try:
-                command = normalize_command(user_input)
-            except DiscoveryError as err:
-                errors["base"] = err.code
+            mode = user_input.get(CONF_COMMAND_MODE)
+            if mode not in (MODE_LEARNED, MODE_RAW):
+                errors["base"] = "invalid_command_mode"
             else:
-                self._data.update(command)
-                return await self.async_step_behavior()
-        # Never prefill a private raw code, including on a failed submission.
+                for key in (CONF_DEVICE, CONF_COMMAND, CONF_RF_CODE, CONF_BEEP_ONLY):
+                    self._data.pop(key, None)
+                self._data[CONF_COMMAND_MODE] = mode
+                if mode == MODE_RAW:
+                    return await self.async_step_raw_command()
+                return await self.async_step_learned_device()
         return self.async_show_form(
             step_id="command",
             errors=errors,
@@ -167,9 +171,104 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
                             translation_key="command_mode",
                         )
                     ),
-                    vol.Optional(CONF_DEVICE): selector.TextSelector(),
-                    vol.Optional(CONF_COMMAND): selector.TextSelector(),
-                    vol.Optional(CONF_RF_CODE): selector.TextSelector(
+                }
+            ),
+        )
+
+    async def async_step_learned_device(self, user_input=None) -> ConfigFlowResult:
+        """Offer saved groups, with typed names for learning after setup."""
+        errors = {}
+        catalog = {}
+        try:
+            catalog = await async_learned_commands(
+                self.hass, self._data[CONF_BROADLINK]
+            )
+            if user_input is not None:
+                self._data[CONF_DEVICE] = normalize_command_name(
+                    user_input.get(CONF_DEVICE)
+                )
+                return await self.async_step_learned_command()
+        except DiscoveryError as err:
+            errors["base"] = err.code
+        return self.async_show_form(
+            step_id="learned_device",
+            errors=errors,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_DEVICE): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=list(catalog),
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                            custom_value=True,
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_learned_command(self, user_input=None) -> ConfigFlowResult:
+        """Offer commands from only the selected learned group."""
+        errors = {}
+        catalog = {}
+        try:
+            catalog = await async_learned_commands(
+                self.hass, self._data[CONF_BROADLINK]
+            )
+            if user_input is not None:
+                command = normalize_command(
+                    {
+                        CONF_COMMAND_MODE: MODE_LEARNED,
+                        CONF_DEVICE: self._data[CONF_DEVICE],
+                        CONF_COMMAND: user_input.get(CONF_COMMAND),
+                        CONF_BEEP_ONLY: user_input.get(CONF_BEEP_ONLY),
+                    }
+                )
+                self._data.update(command)
+                return await self.async_step_behavior()
+        except DiscoveryError as err:
+            errors["base"] = err.code
+        return self.async_show_form(
+            step_id="learned_command",
+            errors=errors,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_COMMAND): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=catalog.get(self._data[CONF_DEVICE], []),
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                            custom_value=True,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_BEEP_ONLY, default=False
+                    ): selector.BooleanSelector(),
+                }
+            ),
+        )
+
+    async def async_step_raw_command(self, user_input=None) -> ConfigFlowResult:
+        """Raw mode never displays learned-name fields or prefills a code."""
+        errors = {}
+        if user_input is not None:
+            try:
+                command = normalize_command(
+                    {
+                        CONF_COMMAND_MODE: MODE_RAW,
+                        CONF_RF_CODE: user_input.get(CONF_RF_CODE, ""),
+                        CONF_BEEP_ONLY: user_input.get(CONF_BEEP_ONLY),
+                    }
+                )
+            except DiscoveryError as err:
+                errors["base"] = err.code
+            else:
+                self._data.update(command)
+                return await self.async_step_behavior()
+        return self.async_show_form(
+            step_id="raw_command",
+            errors=errors,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_RF_CODE): selector.TextSelector(
                         selector.TextSelectorConfig(
                             type=selector.TextSelectorType.PASSWORD
                         )

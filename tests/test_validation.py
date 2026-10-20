@@ -58,7 +58,7 @@ def test_named_mode_discards_old_raw_code():
 
 
 @pytest.mark.parametrize("field", [CONF_DEVICE, CONF_COMMAND])
-@pytest.mark.parametrize("value", ["", "   ", "b64:invalid", "x" * 101])
+@pytest.mark.parametrize("value", ["", "   ", "b64:invalid", "x" * 101, None, 12, []])
 def test_invalid_names(field, value):
     with pytest.raises(DiscoveryError, match="invalid_command"):
         normalize_command(

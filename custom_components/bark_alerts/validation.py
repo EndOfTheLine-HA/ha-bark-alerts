@@ -18,6 +18,16 @@ from .const import (
 from .discovery import DiscoveryError
 
 
+def normalize_command_name(value: Any) -> str:
+    """Validate one named-command component, not an RF packet."""
+    if not isinstance(value, str):
+        raise DiscoveryError("invalid_command")
+    value = value.strip()
+    if not value or len(value) > 100 or value.startswith("b64:"):
+        raise DiscoveryError("invalid_command")
+    return value
+
+
 def normalize_command(data: dict[str, Any]) -> dict[str, Any]:
     """Keep only the chosen mode's fields, excluding stale private codes."""
     if data.get(CONF_BEEP_ONLY) is not True:
@@ -26,10 +36,7 @@ def normalize_command(data: dict[str, Any]) -> dict[str, Any]:
     result = {CONF_COMMAND_MODE: mode, CONF_BEEP_ONLY: True}
     if mode == MODE_LEARNED:
         for key in (CONF_DEVICE, CONF_COMMAND):
-            value = str(data.get(key, "")).strip()
-            if not value or len(value) > 100 or value.startswith("b64:"):
-                raise DiscoveryError("invalid_command")
-            result[key] = value
+            result[key] = normalize_command_name(data.get(key))
         return result
     if mode != MODE_RAW:
         raise DiscoveryError("invalid_command")

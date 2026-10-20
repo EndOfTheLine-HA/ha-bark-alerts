@@ -17,13 +17,32 @@
         }
       },
       "command": {
-        "title": "Configure your own beep command",
-        "description": "Use an existing learned command, or enter a new device/group and command name and use Learn beep after setup. Alternatively paste your privately captured Broadlink RF code. Never use a shock or vibration command. Setup sends nothing; the new entry starts disarmed and in dry-run mode.",
+        "title": "Choose your beep command source",
+        "description": "Choose a named command saved by Home Assistant's Broadlink integration, or use your privately captured RF code. Setup does not learn, test, or transmit anything; the entry starts disarmed and in dry-run mode.",
         "data": {
-          "command_mode": "Command source",
-          "command_device": "Learned device/group name (named-command mode)",
-          "beep_command": "Beep command name (named-command mode)",
-          "rf_code": "Private RF base64 code (raw-code mode)",
+          "command_mode": "Command source"
+        }
+      },
+      "learned_device": {
+        "title": "Choose your learned device",
+        "description": "Choose a device/group saved by this Broadlink transmitter. You can also type a new name and use Learn beep after setup. If the list is empty, no readable saved groups were found. Codes used directly in scripts and devices saved only in the Broadlink app are not listed. Setup does not change Broadlink's saved commands.",
+        "data": {
+          "command_device": "Learned device/group (choose or type a new name)"
+        }
+      },
+      "learned_command": {
+        "title": "Choose your beep command",
+        "description": "Only commands saved under your chosen device/group are listed. You can type a new command name and use Learn beep after setup. Names do not prove what a command does: choose only a verified beep command, never vibration or shock. Setup sends nothing.",
+        "data": {
+          "beep_command": "Beep command (choose or type a new name)",
+          "beep_only_confirmed": "I confirm this command only beeps, not vibration or shock"
+        }
+      },
+      "raw_command": {
+        "title": "Enter your private beep RF code",
+        "description": "Paste your own captured Broadlink RF base64 code, optionally prefixed with b64:. Never use a shock or vibration command. No learned device/group or command name is needed. Setup sends nothing; the entry starts disarmed and in dry-run mode.",
+        "data": {
+          "rf_code": "Private RF base64 code",
           "beep_only_confirmed": "I confirm this command only beeps, not vibration or shock"
         }
       },
@@ -40,6 +59,7 @@
       }
     },
     "error": {
+      "invalid_command_mode": "Choose a named Broadlink command or a private RF code.",
       "invalid_camera": "Choose an enabled camera from the Frigate integration.",
       "unsupported_camera": "This is not a supported individual Frigate camera. Birdseye and older identifier formats are not supported.",
       "missing_bark": "Enable audio detection and the bark label for this camera in Frigate, then reload Frigate's Home Assistant integration and enable its bark sensor.",

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.2
+
+- Add a learned device/group dropdown for the selected Broadlink transmitter,
+  followed by a command dropdown scoped to the selected group. Both accept typed
+  names for receive-only learning after setup.
+- Read only device/group and command names from Broadlink's local version-1
+  store. Never modify its storage or include packets in dropdowns, diagnostics,
+  or the resulting named-command config entry. Unsupported/unreadable stores
+  fall back to manual entry.
+- Separate command-source selection from named-command and raw-code screens.
+  Raw-code mode no longer shows irrelevant learned-name fields and never reads
+  the learned-command store or prefills a private packet.
+- Keep existing config entries compatible, beep-only confirmation mandatory,
+  and startup/reload defaults disarmed with dry run on. Setup does not learn,
+  transmit, or test a command.
+- Add synthetic storage, dependent-dropdown, fallback, privacy, and real HA flow
+  regressions. No user RF packets or device names are used in tests.
+
+After installing this update through HACS, restart Home Assistant and reopen
+setup to use the new flow.
+
 ## 0.1.1
 
 - Accept Broadlink RF packets with a `B1` header in raw-code mode, with or
