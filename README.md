@@ -1,12 +1,55 @@
-# Bark Alerts for Home Assistant
+# Bark Alerts — Automatic RF Dog-Collar Beeps from Frigate Bark Detection
 
-Choose a Frigate camera, choose your Broadlink device, and configure your own
-collar's **beep-only** command. No YAML or manual entity-ID mapping is needed.
+A Home Assistant integration that turns **Frigate dog-bark detections into
+automatic beep-only RF commands for a compatible dog collar**, sent through
+Broadlink. Choose a Frigate camera, choose your Broadlink device, and configure
+your own collar's learned beep command. No YAML or manual entity-ID mapping is
+needed.
+
+> [!WARNING]
+> **An incorrectly learned or selected RF command could activate SHOCK instead
+> of a beep. Read this before setup or testing.**
+>
+> Bark Alerts is intended for **beep-only use**. It cannot inspect an RF command
+> and verify whether the collar will beep, vibrate, or deliver a shock. Naming a
+> command `beep` or checking the beep-only confirmation does **not** make it safe.
+> A wrong button, collar channel, saved command, or raw code can cause an
+> unintended action, and automatic detections or configured repetitions can
+> repeat that action.
+>
+> **Never learn, select, or automate shock or vibration commands. Remove the
+> collar from the animal before learning or testing, and verify the actual
+> response of the intended receiver before enabling automatic operation.**
+> Recheck after relearning a command or changing the remote, receiver, channel,
+> or configuration. Do not enable automation if the command's effect is uncertain.
+>
+> **Test beep (sends RF) transmits even with Armed off or Dry run on.** Those
+> switches protect automatic operation; they do not block an explicit manual
+> test. Disarming cannot cancel a command already sent or handed to Broadlink.
+>
+> Frigate can misclassify sounds and cannot establish which dog barked.
+> Keep automatic operation disabled until you have checked detections in dry
+> run, disable other automations targeting the collar, and supervise initial
+> operation. Cooldowns are per entry, so multiple entries or other automations
+> can produce additional commands.
 
 This is an alerting companion, not a new audio classifier. Frigate performs the
 audio/object detection; Bark Alerts connects those detections to an existing
 Broadlink RF remote. No Frigate patches, cloud accounts, or copied household
 configuration are required.
+
+## Tested hardware and compatibility
+
+The maintainer uses and has tested this integration with **one FunniPets
+remote-controlled dog collar**, using its **beep command only**. The supplied
+product listing describes the FunniPets two-collar set with beep, vibration,
+and static-shock modes; **only one collar was used in integration testing**.
+
+This is a limited compatibility report, not a guarantee for every FunniPets
+model or hardware revision. Multi-collar operation, other collar models, and
+shock/vibration operation have not been validated here. Shock and vibration
+are outside this integration's intended use. A collar's brand or appearance
+alone does not establish RF compatibility.
 
 ## Requirements
 
@@ -51,7 +94,9 @@ setup; an already-open flow uses old code.
      beep-only confirmation. Paste your own captured Broadlink base64 RF packet.
      The optional `b64:` prefix is accepted. The field is masked; the code remains
      in your local HA config entry, not this repository.
-6. Confirm it is beep-only and review the default settings.
+6. Review the warning above and the default settings. The beep-only confirmation
+   is your acknowledgement, not an automatic check of the RF command. Verify the
+   receiver's actual response off the animal before enabling automatic operation.
 
 The wizard does not send, learn, or physically test anything. The dropdowns use a
 read-only lookup of the selected remote's local Broadlink version-1 code store;
