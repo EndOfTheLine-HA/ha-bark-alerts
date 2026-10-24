@@ -1,6 +1,7 @@
 """Use HA's flow manager and entity platforms in an isolated config directory."""
 
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import EntityCategory
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 
@@ -62,6 +63,11 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig, learned_s
     assert len(entities) == 8
     assert all(hass.states.get(entity.entity_id) is not None for entity in entities)
     assert not rig.sends and not rig.learns
+    # Arming controls are configuration entities, which voice assistants do not
+    # receive by default.
+    switches = [entity for entity in entities if entity.domain == "switch"]
+    assert len(switches) == 2
+    assert all(entity.entity_category is EntityCategory.CONFIG for entity in switches)
 
     controller.armed, controller.dry_run = True, False
     result = await hass.config_entries.options.async_init(entry.entry_id)
