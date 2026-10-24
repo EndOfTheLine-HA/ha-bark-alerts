@@ -1,3 +1,5 @@
+<p align="center"><img src="custom_components/bark_alerts/brand/icon@2x.png" alt="Bark Alerts: camera detection and RF dog collar" width="256" height="256"></p>
+
 # Bark Alerts — Automatic RF Dog-Collar Beeps from Frigate Bark Detection
 
 A Home Assistant integration that turns **Frigate dog-bark detections into
