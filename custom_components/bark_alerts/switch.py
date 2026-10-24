@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -26,6 +27,11 @@ async def async_setup_entry(
 
 class BarkAlertsSwitch(BarkAlertsEntity, SwitchEntity):
     """Runtime opt-in: never arm from a remembered state on startup."""
+
+    # Configuration entities are not exposed to Assist or cloud voice assistants
+    # by default, so "turn off dry run, turn on armed" cannot be spoken into
+    # live automatic transmissions. They stay on the device page.
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, controller, key: str) -> None:
         super().__init__(controller, key)

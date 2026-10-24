@@ -294,7 +294,7 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = err.code
             else:
                 options = {key: user_input[key] for key in DEFAULTS}
-                title = f"Bark alerts — {sources.name}"
+                title = f"Bark alerts: {sources.name}"
                 if self._reconfigure:
                     # The regular update listener owns reloading the entry.
                     self.hass.config_entries.async_update_entry(

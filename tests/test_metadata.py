@@ -18,7 +18,7 @@ def test_metadata_and_translations():
     manifest = json.loads((PACKAGE / "manifest.json").read_text(encoding="utf-8"))
     hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
     assert manifest["domain"] == "bark_alerts" and manifest["config_flow"] is True
-    assert manifest["requirements"] == [] and manifest["version"] == VERSION == "0.1.2"
+    assert manifest["requirements"] == [] and manifest["version"] == VERSION == "0.1.3"
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert project["project"]["version"] == VERSION
     assert hacs["homeassistant"] == "2026.10.2"
@@ -52,7 +52,8 @@ def test_no_embedded_network_addresses_or_real_rf_payloads():
 
 @pytest.mark.parametrize("filename,size", [("icon.png", 256), ("icon@2x.png", 512)])
 def test_local_brand_assets(filename, size):
+    # Home Assistant reads only these two PNGs; the icon has no SVG source since
+    # the camera and RF collar artwork replaced it.
     content = (PACKAGE / "brand" / filename).read_bytes()
     assert content[:8] == b"\x89PNG\r\n\x1a\n"
     assert struct.unpack(">II", content[16:24]) == (size, size)
-    assert (PACKAGE / "brand" / "icon.svg").is_file()

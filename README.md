@@ -1,6 +1,6 @@
 <p align="center"><img src="custom_components/bark_alerts/brand/icon@2x.png" alt="Bark Alerts: camera detection and RF dog collar" width="256" height="256"></p>
 
-# Bark Alerts — Automatic RF Dog-Collar Beeps from Frigate Bark Detection
+# Bark Alerts: Automatic RF Dog-Collar Beeps from Frigate Bark Detection
 
 A Home Assistant integration that turns **Frigate dog-bark detections into
 automatic beep-only RF commands for a compatible dog collar**, sent through
@@ -156,7 +156,7 @@ Detection rules:
 The device exposes Armed, Dry run, Sources ready, Last outcome, Last detection,
 Last command request, and the explicit test/learning buttons. Outcome counters
 are session-only. `bark_alerts_alert` events contain only the entry ID, source
-(`bark`, `animal`, or `manual`), and outcome—not command payloads.
+(`bark`, `animal`, or `manual`), and outcome, not command payloads.
 
 Use **Configure** for cooldown/fallback/repetition settings. Use **Reconfigure**
 to choose another camera, Broadlink device, or command. Multiple entries can
@@ -192,7 +192,7 @@ When an expected beep is missing:
 3. Check the recorded outcome. `dry_run`, `dog_not_recent`, `cooldown`, `busy`,
    `source_unavailable`, and `remote_unavailable` identify different gates;
    they are not confirmations of a transmitted command.
-4. If the outcome is **Command requested — reception not confirmed**, the remote
+4. If the outcome is **Command requested: reception not confirmed**, the remote
    service returned without raising an error to Bark Alerts. Broadlink can log
    some transmission failures without raising them. Privately review its logs
    and check receiver power, range, and interference. Do not publish logs or

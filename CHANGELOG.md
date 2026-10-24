@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.3
+
+- Mark the Armed and Dry run switches as configuration entities. Home Assistant
+  does not expose configuration entities to Assist or cloud voice assistants by
+  default, so live automatic transmissions cannot be switched on by voice. Both
+  switches stay on the device page. If you already exposed them to a voice
+  assistant, that exposure is kept; remove it under Settings > Voice
+  assistants > Expose if you do not want it.
+- Brand test no longer requires an SVG source now that the icon is raster
+  artwork (fixes the failing check on main).
+- Outcome names, the default entry title and the README use colons instead of
+  em dashes, for example "Dry run: no command sent". Existing entry titles are
+  unchanged.
+
 ## 0.1.2
 
 - Add a learned device/group dropdown for the selected Broadlink transmitter,
