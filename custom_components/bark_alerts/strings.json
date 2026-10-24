@@ -138,15 +138,15 @@
         "state": {
           "idle": "Idle",
           "disarmed": "Disarmed",
-          "dry_run": "Dry run — no command sent",
-          "command_requested": "Command requested — reception not confirmed",
+          "dry_run": "Dry run: no command sent",
+          "command_requested": "Command requested: reception not confirmed",
           "cooldown": "Cooldown",
-          "busy": "Busy — event discarded",
+          "busy": "Busy: event discarded",
           "dog_not_recent": "No recent dog on this camera",
           "source_unavailable": "Source unavailable",
           "remote_unavailable": "Remote unavailable or off",
           "error": "Command request failed",
-          "learning_requested": "Learning requested — verify the result"
+          "learning_requested": "Learning requested: verify the result"
         }
       },
       "last_detection": {

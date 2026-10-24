@@ -10,6 +10,9 @@
   assistants > Expose if you do not want it.
 - Brand test no longer requires an SVG source now that the icon is raster
   artwork (fixes the failing check on main).
+- Outcome names, the default entry title and the README use colons instead of
+  em dashes, for example "Dry run: no command sent". Existing entry titles are
+  unchanged.
 
 ## 0.1.2
 
