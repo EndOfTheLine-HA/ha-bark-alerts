@@ -14,8 +14,11 @@ from custom_components.bark_alerts.const import (
     CONF_CAMERA_ID,
     CONF_COMMAND,
     CONF_COMMAND_MODE,
+    CONF_DELAY,
     CONF_DEVICE,
     CONF_FALLBACK,
+    CONF_REPEATS,
+    CONF_RF_CODE,
     DEFAULTS,
     DOMAIN,
 )
@@ -94,6 +97,93 @@ async def test_actual_request_has_one_selected_remote_and_bounded_repeats(
     }
     assert controller.outcome == "command_requested"
     assert controller.last_request is not None
+
+
+@pytest.mark.parametrize("mode", ["learned", "raw"])
+@pytest.mark.parametrize("source", ["bark", "animal", "manual"])
+async def test_two_repetitions_use_one_request_for_each_command_and_trigger(
+    hass, rig, controller, mode, source
+):
+    from .test_validation import packet
+
+    data = dict(controller.entry.data)
+    if mode == "raw":
+        data.pop(CONF_DEVICE)
+        data.pop(CONF_COMMAND)
+        data.update({CONF_COMMAND_MODE: mode, CONF_RF_CODE: "b64:" + packet()})
+    hass.config_entries.async_update_entry(
+        controller.entry,
+        data=data,
+        options={
+            **DEFAULTS,
+            CONF_REPEATS: 2,
+            CONF_DELAY: 2,
+            CONF_FALLBACK: source == "animal",
+        },
+    )
+    # The manual button deliberately works while disarmed and in dry run.
+    controller.armed, controller.dry_run = source != "manual", source == "manual"
+    if source == "manual":
+        await controller.async_alert(source, manual=True)
+    else:
+        if source == "animal":
+            await edge(hass, rig.selected["dog"])
+        await edge(hass, rig.selected[source])
+
+    expected = {
+        "entity_id": rig.remote.entity_id,
+        "num_repeats": 2,
+        "delay_secs": 2,
+        "command": [data[CONF_RF_CODE] if mode == "raw" else data[CONF_COMMAND]],
+    }
+    if mode == "learned":
+        expected["device"] = data[CONF_DEVICE]
+    assert len(rig.sends) == 1
+    assert rig.sends[0].data == expected
+    # Count service requests, not repetitions or confirmed audible beeps.
+    assert controller.request_count == 1 and controller.dry_run_count == 0
+    assert controller.outcome == "command_requested"
+    assert (controller.last_detection is None) == (source == "manual")
+
+    if source == "manual":
+        with pytest.raises(HomeAssistantError):
+            await controller.async_alert(source, manual=True)
+    else:
+        await edge(hass, rig.selected[source])
+    assert controller.outcome == "cooldown"
+    assert len(rig.sends) == 1 and controller.request_count == 1
+
+
+async def test_two_repetitions_do_not_bypass_dry_run(hass, rig, controller):
+    hass.config_entries.async_update_entry(
+        controller.entry, options={**DEFAULTS, CONF_REPEATS: 2, CONF_DELAY: 2}
+    )
+    controller.armed = True
+    await edge(hass, rig.selected["bark"])
+    assert controller.outcome == "dry_run"
+    assert controller.dry_run_count == 1 and controller.request_count == 0
+    assert not rig.sends
+
+
+async def test_arming_does_not_replay_a_detection_from_while_disarmed(
+    hass, rig, controller
+):
+    hass.config_entries.async_update_entry(
+        controller.entry, options={**DEFAULTS, CONF_REPEATS: 2, CONF_DELAY: 2}
+    )
+    await edge(hass, rig.selected["bark"])
+    assert controller.outcome == "disarmed" and not rig.sends
+    controller.armed, controller.dry_run = True, False
+    controller.async_notify()
+    await hass.async_block_till_done()
+    assert not rig.sends
+    hass.states.async_set(rig.selected["bark"].entity_id, "on", {"updated": True})
+    await hass.async_block_till_done()
+    assert not rig.sends
+    await edge(hass, rig.selected["bark"])
+    assert len(rig.sends) == 1
+    assert rig.sends[0].data["num_repeats"] == 2
+    assert controller.request_count == 1
 
 
 async def test_cooldown_discards_duplicate_without_queue(hass, rig, controller):

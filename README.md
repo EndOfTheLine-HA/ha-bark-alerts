@@ -69,6 +69,13 @@ New entries start with **Armed off** and **Dry run on**. Every HA restart, entry
 reload, options change, or reconfiguration returns to those safe defaults. You
 must re-arm explicitly; there is no automatic startup beep.
 
+**After restarting or updating:** check **Sources ready**, explicitly turn
+**Armed on**, and leave **Dry run on** while checking detection. Only turn
+**Dry run off** when ready for automatic transmissions. Saved repetition and
+cooldown options survive a restart; the live enable switches and counters do not.
+Sources ready does not mean the entry is armed, and arming does not replay
+detections that occurred while disarmed.
+
 1. For a new named command, press **Learn beep (receive RF)** and follow the
    native Broadlink notifications. Press only the original remote's beep button.
    Learning the same device/group and command name again can overwrite that
@@ -109,6 +116,45 @@ to choose another camera, Broadlink device, or command. Multiple entries can
 target one transmitter; cooldown is per entry, not global across entries or
 other automations. Do not pair multiple noisy sources to one collar without
 reviewing their combined behavior.
+
+## Repetitions and troubleshooting
+
+The default remains **one repetition** with a **one-second repetition delay**.
+If a known beep command is received inconsistently, an optional setting is
+**Beep command repetitions: 2** and **Delay between repetitions: 2 seconds**.
+This requests two transmissions from Broadlink, so two audible beeps may be
+expected. It is not a universal compatibility fix or a delivery guarantee.
+Change one setting at a time and verify the effect with the collar **off the
+animal**. Changing options reloads the entry and returns it to disarmed/dry-run;
+check the saved values before explicitly re-enabling automatic operation.
+
+One alert increments `command_requests` once, even when that request includes
+two or three repetitions. The counter does not measure RF packets or audible
+beeps. Configured repetitions are distinct from an automatic retry after failure;
+the integration does not add retries or queue a later alert.
+
+When an expected beep is missing:
+
+1. Check the actual **Armed** and **Dry run** switches first, especially after a
+   restart, reload, options change, or reconfiguration. **Last outcome** describes
+   the previous processed event; it can still say `disarmed` after you re-arm.
+2. Check the selected camera's bark/animal source history and **Last detection**.
+   A sound that remains `on` is not a new event: it must return to `off` and then
+   turn `on` again. An animal-sound fallback also needs that camera's recently
+   observed dog occupancy in the current session.
+3. Check the recorded outcome. `dry_run`, `dog_not_recent`, `cooldown`, `busy`,
+   `source_unavailable`, and `remote_unavailable` identify different gates;
+   they are not confirmations of a transmitted command.
+4. If the outcome is **Command requested — reception not confirmed**, the remote
+   service returned without raising an error to Bark Alerts. Broadlink can log
+   some transmission failures without raising them. Privately review its logs
+   and check receiver power, range, and interference. Do not publish logs or
+   traces that may contain private codes.
+5. Verify the manual command off the animal, then separately verify a new natural
+   detection. A manual test bypasses arming/dry-run and source gates; its success
+   alone does not prove automatic detection, and dry-run success does not prove
+   physical delivery. Keep any legacy automation disabled during the live check
+   to avoid duplicate senders.
 
 ## Safety, privacy, and limitations
 

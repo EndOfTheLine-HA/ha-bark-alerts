@@ -17,6 +17,13 @@
   transmit, or test a command.
 - Add synthetic storage, dependent-dropdown, fallback, privacy, and real HA flow
   regressions. No user RF packets or device names are used in tests.
+- Cover configurable two-repetition/two-second-delay requests for direct bark,
+  dog-gated animal fallback, and explicit manual tests in named and raw modes.
+  Verify one request-counter increment, cooldown, dry-run suppression, saved
+  options across reload, and no replay of detections after re-arming.
+- Document optional repetitions, post-restart re-arming, stale outcome labels,
+  and the difference between a service request and audible reception. Keep the
+  one-repetition default and all startup/reload safety behavior unchanged.
 
 After installing this update through HACS, restart Home Assistant and reopen
 setup to use the new flow.

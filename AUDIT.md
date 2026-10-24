@@ -1,6 +1,6 @@
 # Source, privacy, and verification audit
 
-Date: 2026-10-20
+Release review: 2026-10-23
 
 ## Scope and provenance
 
@@ -97,20 +97,31 @@ setup with no store read or packet prefill, mode changes, and real HA lifecycle
 reconfiguration. Storage tests assert that existing bytes stay unchanged and
 missing stores are not created.
 
-The updated suite has 104 passing tests. A native HA HTTP-library deprecation
+Release regressions also cover two repetitions with a two-second delay in both
+command modes for direct bark, same-camera animal fallback, and explicit manual
+tests. They assert one remote service request and one request-counter increment,
+not two independently confirmed RF transmissions. Cooldown and dry-run gates
+remain in effect. The HA lifecycle test preserves repetition settings across an
+options reload and explicit entry reload while resetting the enable switches.
+Re-arming does not replay a retained detection from the disarmed interval.
+
+The updated suite has 112 passing tests. A native HA HTTP-library deprecation
 warning appears in the lifecycle test; it is not an RF or integration failure.
 Tests do not contact a physical transmitter.
 
-## Not yet verified or performed
+## Hardware and publication boundary
 
-- No live HA deployment, existing-automation migration, Frigate changes, RF
-  learning, or physical transmission was performed while building this project.
-- No end-to-end camera/audio/Broadlink/collar test or independent audible-receipt
-  verification. False-positive rates, range, receiver sleep, battery behavior,
-  RF learning reliability, and model-specific compatibility remain unvalidated.
-- No long-duration soak or multi-entry contention test against real hardware.
-- No release or default-catalog submission. Repository publication and automated
-  GitHub validation are separate from a physical validation or production rollout.
+- The automated suite never deploys to a live HA instance, changes an existing
+  automation, alters Frigate, learns a real code, or contacts a transmitter.
+- Physical validation is installation-specific. Any private hardware-check
+  records stay outside this repository. This audit does not certify a collar
+  model or establish universal delivery, false-positive rates, range, receiver
+  sleep behavior, battery performance, or RF-learning reliability.
+- No automated test provides independent audible-receipt verification,
+  long-duration hardware soak coverage, or a real multi-entry contention test.
+- A versioned GitHub release and HACS custom-repository installation are not
+  default-catalog acceptance or a production rollout. Publication never changes
+  live HA switches or automatically migrates a legacy automation.
 
 ## Publication checks
 

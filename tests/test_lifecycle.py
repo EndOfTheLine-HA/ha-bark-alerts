@@ -10,8 +10,10 @@ from custom_components.bark_alerts.const import (
     CONF_CAMERA,
     CONF_COMMAND,
     CONF_COMMAND_MODE,
+    CONF_DELAY,
     CONF_DEVICE,
     CONF_FALLBACK,
+    CONF_REPEATS,
     CONF_RF_CODE,
     DEFAULTS,
     DOMAIN,
@@ -65,11 +67,25 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig, learned_s
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["step_id"] == "init"
     await hass.config_entries.options.async_configure(
-        result["flow_id"], {**DEFAULTS, CONF_FALLBACK: True}
+        result["flow_id"],
+        {**DEFAULTS, CONF_FALLBACK: True, CONF_REPEATS: 2, CONF_DELAY: 2},
     )
     await hass.async_block_till_done()
     assert entry.runtime_data is not controller
     assert not entry.runtime_data.armed and entry.runtime_data.dry_run
+    assert entry.options[CONF_REPEATS] == entry.runtime_data.option(CONF_REPEATS) == 2
+    assert entry.options[CONF_DELAY] == entry.runtime_data.option(CONF_DELAY) == 2
+
+    # A new controller preserves saved options, never the live enable switches.
+    reloaded = entry.runtime_data
+    reloaded.armed, reloaded.dry_run = True, False
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.runtime_data is not reloaded
+    assert not entry.runtime_data.armed and entry.runtime_data.dry_run
+    assert entry.runtime_data.option(CONF_REPEATS) == 2
+    assert entry.runtime_data.option(CONF_DELAY) == 2
+    assert not rig.sends and not rig.learns
 
     # Reconfigure the same pairing without falsely treating itself as a duplicate.
     result = await hass.config_entries.flow.async_init(
