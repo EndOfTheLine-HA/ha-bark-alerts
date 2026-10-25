@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
@@ -130,20 +129,3 @@ async def rig(hass):
         registry=registry,
         frigate=frigate,
     )
-
-
-@pytest.fixture
-def learned_storage(hass):
-    """Synthetic storage only, never read the user's HA storage or RF packets."""
-
-    def save(data, unique_id="000000000001"):
-        key = f"broadlink_remote_{unique_id}_codes"
-        path = Path(hass.config.path(".storage", key))
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            json.dumps({"version": 1, "minor_version": 1, "key": key, "data": data}),
-            encoding="utf-8",
-        )
-        return path
-
-    return save

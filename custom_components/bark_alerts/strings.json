@@ -18,23 +18,23 @@
       },
       "command": {
         "title": "Choose your beep command source",
-        "description": "Choose a named command saved by Home Assistant's Broadlink integration, or use your privately captured RF code. Setup does not learn, test, or transmit anything; the entry starts disarmed and in dry-run mode.",
+        "description": "Use typed names for a command saved by Home Assistant's Broadlink integration, or use your privately captured RF code. Setup does not learn, test, or transmit anything; the entry starts disarmed and in dry-run mode.",
         "data": {
           "command_mode": "Command source"
         }
       },
       "learned_device": {
-        "title": "Choose your learned device",
-        "description": "Choose a device/group saved by this Broadlink transmitter. You can also type a new name and use Learn beep after setup. If the list is empty, no readable saved groups were found. Codes used directly in scripts and devices saved only in the Broadlink app are not listed. Setup does not change Broadlink's saved commands.",
+        "title": "Enter your learned device/group",
+        "description": "Type the device/group name exactly as it is saved in Home Assistant's Broadlink integration. To create a new command, enter the name you want to use and select Learn beep after setup. Bark Alerts does not read or change Broadlink storage. Setup sends nothing.",
         "data": {
-          "command_device": "Learned device/group (choose or type a new name)"
+          "command_device": "Learned device/group name"
         }
       },
       "learned_command": {
-        "title": "Choose your beep command",
-        "description": "Only commands saved under your chosen device/group are listed. You can type a new command name and use Learn beep after setup. Names do not prove what a command does: choose only a verified beep command, never vibration or shock. Setup sends nothing.",
+        "title": "Enter your beep command",
+        "description": "Type the command name exactly as it is saved under the device/group, or enter a new name and select Learn beep after setup. Names do not prove what a command does: use only a verified beep command, never vibration or shock. Setup sends nothing.",
         "data": {
-          "beep_command": "Beep command (choose or type a new name)",
+          "beep_command": "Beep command name",
           "beep_only_confirmed": "I confirm this command only beeps, not vibration or shock"
         }
       },

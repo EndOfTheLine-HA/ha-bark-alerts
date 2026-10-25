@@ -34,8 +34,7 @@ async def configure_named(hass, result, device):
     return result
 
 
-async def test_real_flow_setup_platforms_options_and_unload(hass, rig, learned_storage):
-    learned_storage({"example": {"beep": "synthetic saved packet"}})
+async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
     # Source integrations are represented by isolated registries, never hardware.
     hass.config.components.add("broadlink")
     assert await async_setup_component(hass, "remote", {})
