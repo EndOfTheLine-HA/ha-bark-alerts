@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.4
+
+- Remove the Broadlink private-storage reader. Bark Alerts no longer opens or
+  parses another integration's `.storage` data.
+- Replace learned device/group and command dropdowns with typed name fields.
+  Enter existing names exactly as Home Assistant knows them, or enter new names
+  and use the receive-only Learn beep button after setup.
+- Keep existing config entries compatible. Setup still sends nothing, requires
+  beep-only confirmation, and starts disarmed with dry run enabled.
+- Update flow text, documentation, audit notes, and regression tests to match
+  the public Home Assistant action boundary.
+
 ## 0.1.3
 
 - Mark the Armed and Dry run switches as configuration entities. Home Assistant

@@ -35,7 +35,6 @@ from .const import (
     MODE_RAW,
 )
 from .discovery import DiscoveryError, broadlink_remote, camera_sources
-from .learned_commands import async_learned_commands
 from .validation import normalize_command, normalize_command_name
 
 
@@ -176,45 +175,30 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_learned_device(self, user_input=None) -> ConfigFlowResult:
-        """Offer saved groups, with typed names for learning after setup."""
+        """Accept a typed device/group name for an existing or new command."""
         errors = {}
-        catalog = {}
-        try:
-            catalog = await async_learned_commands(
-                self.hass, self._data[CONF_BROADLINK]
-            )
-            if user_input is not None:
+        if user_input is not None:
+            try:
                 self._data[CONF_DEVICE] = normalize_command_name(
                     user_input.get(CONF_DEVICE)
                 )
+            except DiscoveryError as err:
+                errors["base"] = err.code
+            else:
                 return await self.async_step_learned_command()
-        except DiscoveryError as err:
-            errors["base"] = err.code
         return self.async_show_form(
             step_id="learned_device",
             errors=errors,
             data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_DEVICE): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=list(catalog),
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                            custom_value=True,
-                        )
-                    )
-                }
+                {vol.Required(CONF_DEVICE): selector.TextSelector()}
             ),
         )
 
     async def async_step_learned_command(self, user_input=None) -> ConfigFlowResult:
-        """Offer commands from only the selected learned group."""
+        """Accept a typed command name and require beep-only confirmation."""
         errors = {}
-        catalog = {}
-        try:
-            catalog = await async_learned_commands(
-                self.hass, self._data[CONF_BROADLINK]
-            )
-            if user_input is not None:
+        if user_input is not None:
+            try:
                 command = normalize_command(
                     {
                         CONF_COMMAND_MODE: MODE_LEARNED,
@@ -223,22 +207,17 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
                         CONF_BEEP_ONLY: user_input.get(CONF_BEEP_ONLY),
                     }
                 )
+            except DiscoveryError as err:
+                errors["base"] = err.code
+            else:
                 self._data.update(command)
                 return await self.async_step_behavior()
-        except DiscoveryError as err:
-            errors["base"] = err.code
         return self.async_show_form(
             step_id="learned_command",
             errors=errors,
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_COMMAND): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=catalog.get(self._data[CONF_DEVICE], []),
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                            custom_value=True,
-                        )
-                    ),
+                    vol.Required(CONF_COMMAND): selector.TextSelector(),
                     vol.Required(
                         CONF_BEEP_ONLY, default=False
                     ): selector.BooleanSelector(),

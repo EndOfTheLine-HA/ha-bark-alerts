@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import probatio
 import pytest
 import voluptuous as vol
@@ -144,26 +142,13 @@ def test_behavior_bounds(key, value):
         behavior_schema({})({**DEFAULTS, key: value})
 
 
-async def test_saved_device_and_dependent_command_dropdowns(hass, rig, learned_storage):
-    path = learned_storage(
-        {
-            "Other device": {"unrelated": "private synthetic payload"},
-            "Example collar": {"beep": "private synthetic beep packet"},
-        }
-    )
-    before = path.read_bytes()
-    # Another transmitter must never contribute choices.
-    learned_storage({"Wrong transmitter": {"wrong": "synthetic"}}, "000000000002")
+async def test_named_command_uses_typed_names_only(hass, rig):
     wizard, result = await command_step(hass, rig)
     device = field(result, CONF_DEVICE)
-    assert isinstance(device, selector.SelectSelector)
-    assert device.config["mode"] == "dropdown" and device.config["custom_value"]
-    assert device.config["options"] == ["Example collar", "Other device"]
+    assert isinstance(device, selector.TextSelector)
     result = await wizard.async_step_learned_device({CONF_DEVICE: "Example collar"})
     command = field(result, CONF_COMMAND)
-    assert isinstance(command, selector.SelectSelector)
-    assert command.config["options"] == ["beep"]
-    assert command.config["custom_value"]
+    assert isinstance(command, selector.TextSelector)
     assert not field(result, CONF_BEEP_ONLY)(False)
     result = await wizard.async_step_learned_command(
         {CONF_COMMAND: "beep", CONF_BEEP_ONLY: True}
@@ -171,17 +156,13 @@ async def test_saved_device_and_dependent_command_dropdowns(hass, rig, learned_s
     result = await wizard.async_step_behavior(dict(DEFAULTS))
     assert result["data"][CONF_DEVICE] == "Example collar"
     assert result["data"][CONF_COMMAND] == "beep"
-    assert "private synthetic" not in repr(result["data"])
-    assert path.read_bytes() == before
     assert not rig.sends and not rig.learns
 
 
-async def test_dropdowns_allow_new_names_with_no_storage(hass, rig):
+async def test_typed_fields_allow_new_names(hass, rig):
     wizard, result = await command_step(hass, rig)
-    assert field(result, CONF_DEVICE).config["options"] == []
     result["data_schema"]({CONF_DEVICE: "New collar"})
     result = await wizard.async_step_learned_device({CONF_DEVICE: "New collar"})
-    assert field(result, CONF_COMMAND).config["options"] == []
     result["data_schema"]({CONF_COMMAND: "beep", CONF_BEEP_ONLY: True})
     result = await wizard.async_step_learned_command(
         {CONF_COMMAND: "beep", CONF_BEEP_ONLY: True}
@@ -190,15 +171,14 @@ async def test_dropdowns_allow_new_names_with_no_storage(hass, rig):
     assert not rig.sends and not rig.learns
 
 
-async def test_confirmation_error_preserves_command_choices(hass, rig, learned_storage):
-    learned_storage({"Example": {"beep": "synthetic"}})
+async def test_confirmation_error_keeps_typed_command_form(hass, rig):
     wizard, _ = await command_step(hass, rig)
     await wizard.async_step_learned_device({CONF_DEVICE: "Example"})
     result = await wizard.async_step_learned_command(
         {CONF_COMMAND: "beep", CONF_BEEP_ONLY: False}
     )
     assert result["errors"] == {"base": "beep_confirmation_required"}
-    assert field(result, CONF_COMMAND).config["options"] == ["beep"]
+    assert isinstance(field(result, CONF_COMMAND), selector.TextSelector)
     assert not rig.sends and not rig.learns
 
 
@@ -211,20 +191,16 @@ async def test_invalid_device_name_does_not_advance(hass, rig, value):
     assert not rig.sends and not rig.learns
 
 
-async def test_raw_mode_never_reads_catalog_or_prefills_private_code(hass, rig):
-    with patch(
-        "custom_components.bark_alerts.config_flow.async_learned_commands",
-        side_effect=AssertionError("Raw setup must not read Broadlink storage"),
-    ):
-        wizard, result = await command_step(hass, rig, "raw")
-        result = await wizard.async_step_raw_command(
-            {CONF_RF_CODE: packet(), CONF_BEEP_ONLY: False}
-        )
-        assert result["errors"] == {"base": "beep_confirmation_required"}
-        assert set(result["data_schema"].schema) == {CONF_RF_CODE, CONF_BEEP_ONLY}
-        assert field(result, CONF_RF_CODE).config["type"] == "password"
-        assert packet() not in repr(result)
-        assert CONF_RF_CODE not in wizard._data
+async def test_raw_mode_never_prefills_private_code(hass, rig):
+    wizard, result = await command_step(hass, rig, "raw")
+    result = await wizard.async_step_raw_command(
+        {CONF_RF_CODE: packet(), CONF_BEEP_ONLY: False}
+    )
+    assert result["errors"] == {"base": "beep_confirmation_required"}
+    assert set(result["data_schema"].schema) == {CONF_RF_CODE, CONF_BEEP_ONLY}
+    assert field(result, CONF_RF_CODE).config["type"] == "password"
+    assert packet() not in repr(result)
+    assert CONF_RF_CODE not in wizard._data
     assert not rig.sends and not rig.learns
 
 

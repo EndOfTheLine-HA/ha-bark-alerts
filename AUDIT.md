@@ -16,12 +16,9 @@ Reviewed interfaces:
   formats and per-camera device associations.
 - Home Assistant 2026.10.2 config flows, entity/device registries, state events,
   entity platforms, and Broadlink remote actions/RF-capability registration.
-- For 0.1.2, Broadlink's version-1 learned-code store key/envelope and grouped
-  command structure, reviewed against the pinned
-  [Core remote implementation](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/broadlink/remote.py).
-  There is no public listing action; the compatibility adapter reads only the
-  selected remote's store in an executor and returns names, not packet values.
-  It does not call Store migration/save methods or access live remote internals.
+- Home Assistant's public Broadlink `remote.send_command` and
+  `remote.learn_command` actions. Device/group and command names are typed by
+  the user because Broadlink does not expose a public command-listing action.
 - Official Frigate audio/MQTT and Home Assistant Broadlink documentation linked
   from the README.
 
@@ -58,11 +55,9 @@ and HA backups. Integration diagnostics exclude payloads, command/group names,
 source identifiers, and device names. Exceptions from remote services are not
 echoed by this integration because they can contain codes. Native HA/Broadlink
 logs, action traces, and local config exports still require private handling.
-Learned-name discovery never logs storage exceptions or includes packet values in
-forms/config entries. It validates the selected remote's registry-derived store
-identifier, reads only that one file with a size bound, and checks the storage
-version, key, and data shape. Missing/unreadable/unknown storage falls back to
-typed names. Dropdown labels cannot establish a command's physical effect.
+Bark Alerts does not read another integration's private storage. Named-command
+setup accepts typed device/group and command names only. Those names cannot
+establish a command's physical effect.
 
 ## Completed local validation
 
@@ -90,12 +85,11 @@ typed names. Dropdown labels cannot establish a command's physical effect.
 - Compatibility checks use synthetic packet fixtures only; no user-owned command
   value is stored in source, fixtures, logs, or diagnostics.
 
-Version 0.1.2 adds synthetic tests for names-only storage reads, transmitter/group
-isolation, malformed/unknown/oversized/unreadable stores, path validation,
-dependent dropdowns, manual-name fallback, required confirmation, separate raw
-setup with no store read or packet prefill, mode changes, and real HA lifecycle
-reconfiguration. Storage tests assert that existing bytes stay unchanged and
-missing stores are not created.
+Version 0.1.4 removes automatic learned-name discovery and all access to
+Broadlink's private storage. Regression tests cover typed device/group and
+command fields, required confirmation, separate raw setup with no packet
+prefill, mode changes, source-tree storage isolation, and real HA lifecycle
+reconfiguration.
 
 Release regressions also cover two repetitions with a two-second delay in both
 command modes for direct bark, same-camera animal fallback, and explicit manual
@@ -105,9 +99,9 @@ remain in effect. The HA lifecycle test preserves repetition settings across an
 options reload and explicit entry reload while resetting the enable switches.
 Re-arming does not replay a retained detection from the disarmed interval.
 
-The updated suite has 112 passing tests. A native HA HTTP-library deprecation
-warning appears in the lifecycle test; it is not an RF or integration failure.
-Tests do not contact a physical transmitter.
+The updated suite has 95 passing tests and does not contact a physical
+transmitter. One native HA HTTP-library deprecation warning appears in the
+lifecycle test; it is not an RF or integration failure.
 
 ## Hardware and publication boundary
 
