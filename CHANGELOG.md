@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.3
+
+- Keep optional bark audio history using Frigate's documented HTTP recording and
+  login API, replacing the private Frigate Home Assistant runtime client.
+- Configure the history API connection directly in Bark Alerts. No Frigate
+  credentials, config-entry data or private storage are read. Passwords are
+  masked and never prefilled; diagnostics omit connection details.
+- Bound downloads, refuse redirects, renew expired tokens once and back off
+  failed logins. History remains off by default and cannot send collar commands.
+- Existing clips and monitor entity IDs are preserved. Previously enabled
+  history needs an explicit API connection in Configure to resume captures.
+- History supports multiple cameras from one Frigate instance per monitor.
+  Cross-instance monitoring remains available with history disabled.
+
+
 ## 0.2.2
 
 - Reconfigure defaults to the existing Broadlink transmitter and offers

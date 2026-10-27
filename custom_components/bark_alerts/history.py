@@ -11,93 +11,17 @@ from collections import deque
 from pathlib import Path
 from uuid import uuid4
 
-from aiohttp import ClientError
-from homeassistant.const import CONF_URL
-from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from yarl import URL
-
-from .const import CONF_CAMERA_ID
-from .discovery import selected_camera_ids
+from .recording_api import (
+    POST_SECONDS,
+    PRE_SECONDS,
+    FrigateRecordingClient,
+    HistoryError,
+)
 
 LIMIT = 25
-MAX_DOWNLOAD = 20 * 1024 * 1024
 MAX_AUDIO = 400_000
-PRE_SECONDS = 5
-POST_SECONDS = 5
 SETTLE_SECONDS = 15
 SAFE_ID = re.compile(r"^[a-f0-9]{32}$")
-
-
-class HistoryError(Exception):
-    """Only a non-sensitive status code may leave the recording adapter."""
-
-
-async def download_recording(
-    hass, entry, timestamp: float, camera_id: str | None = None
-) -> bytes:
-    """Reuse the selected Frigate instance's URL and authentication adapter.
-
-    Frigate's client is not a public HA API: fail closed on incompatible versions.
-    No credentials, camera names, remote URLs, or exception details are logged.
-    """
-    camera_id = camera_id or entry.data[CONF_CAMERA_ID]
-    if camera_id not in selected_camera_ids(entry.data):
-        raise HistoryError("source_unavailable")
-    camera = er.async_get(hass).async_get(camera_id)
-    if camera is None or not camera.config_entry_id:
-        raise HistoryError("source_unavailable")
-    prefix = f"{camera.config_entry_id}:camera:"
-    if not camera.unique_id.startswith(prefix):
-        raise HistoryError("source_unavailable")
-    camera_key = camera.unique_id[len(prefix) :]
-    config = hass.config_entries.async_get_entry(camera.config_entry_id)
-    client = hass.data.get("frigate", {}).get(camera.config_entry_id, {}).get("client")
-    if config is None or client is None or not hasattr(client, "get_auth_headers"):
-        raise HistoryError("frigate_unavailable")
-    try:
-        base = URL(config.data[CONF_URL])
-        if base.scheme not in ("http", "https") or not base.host or base.user:
-            raise HistoryError("frigate_unavailable")
-        url = (
-            base
-            / "api"
-            / camera_key
-            / "start"
-            / str(timestamp - PRE_SECONDS)
-            / "end"
-            / str(timestamp + POST_SECONDS)
-            / "clip.mp4"
-        )
-        async with asyncio.timeout(45):
-            headers = await client.get_auth_headers()
-            async with async_get_clientsession(hass).get(
-                url,
-                headers=headers,
-                ssl=getattr(client, "validate_ssl", True),
-                allow_redirects=False,
-            ) as response:
-                if response.status in (401, 403):
-                    raise HistoryError("authentication_failed")
-                if response.status != 200:
-                    raise HistoryError("recording_unavailable")
-                if response.content_length and response.content_length > MAX_DOWNLOAD:
-                    raise HistoryError("recording_too_large")
-                content = bytearray()
-                async for chunk in response.content.iter_chunked(65536):
-                    content.extend(chunk)
-                    if len(content) > MAX_DOWNLOAD:
-                        raise HistoryError("recording_too_large")
-                if not content:
-                    raise HistoryError("recording_unavailable")
-                return bytes(content)
-    except HistoryError:
-        raise
-    except ClientError, TimeoutError, KeyError, ValueError, AttributeError:
-        raise HistoryError("recording_unavailable") from None
-    except Exception:
-        # The external Frigate client's exception types vary between versions.
-        raise HistoryError("frigate_unavailable") from None
 
 
 async def extract_audio(source: Path, target: Path, binary: str = "ffmpeg") -> None:
@@ -159,7 +83,7 @@ class BarkHistory:
         self._save_lock = asyncio.Lock()
         self.closed = False
         self.status = "idle"
-        self.fetch = fetch or download_recording
+        self.fetch = fetch or FrigateRecordingClient().download
         self.extract = extract or extract_audio
 
     async def _io(self, func, *args):
@@ -302,10 +226,7 @@ class BarkHistory:
                         self.folder / "capture.wav",
                     )
                     await self._io(source.write_bytes, content)
-                    manager = self.hass.data.get("ffmpeg")
-                    await self.extract(
-                        source, target, getattr(manager, "binary", "ffmpeg")
-                    )
+                    await self.extract(source, target, "ffmpeg")
                     size = (await self._io(target.stat)).st_size
                     if not 44 < size <= MAX_AUDIO:
                         raise HistoryError("audio_unavailable")

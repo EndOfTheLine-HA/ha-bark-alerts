@@ -205,6 +205,17 @@ async def test_camera_only_reconfigure_keeps_command_and_entity_ids(hass, rig, m
         result = await configure_named(hass, result, "Example collar")
     options = {**DEFAULTS, CONF_HISTORY: True, CONF_REPEATS: 2, CONF_DELAY: 2}
     result = await hass.config_entries.flow.async_configure(result["flow_id"], options)
+    assert result["step_id"] == "history"
+    connection = {
+        "url": "https://example.test",
+        "username": "viewer",
+        "password": "synthetic secret",
+        "verify_ssl": True,
+    }
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], connection
+    )
+    options["history_connection"] = connection
     entry = result["result"]
     await hass.async_block_till_done()
     original_data = dict(entry.data)
@@ -243,6 +254,9 @@ async def test_camera_only_reconfigure_keeps_command_and_entity_ids(hass, rig, m
     assert packet() not in repr(result)
     assert dict(entry.data) == original_data  # No writes until final submission.
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["step_id"] == "history"
+    assert "synthetic secret" not in repr(result)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["reason"] == "reconfigured"
     await hass.async_block_till_done()
     assert set(entry.data[CONF_CAMERA_IDS]) == {
@@ -260,5 +274,49 @@ async def test_camera_only_reconfigure_keeps_command_and_entity_ids(hass, rig, m
         )
     } == ids
     assert not entry.runtime_data.armed and not entry.runtime_data.dry_run
+    assert not rig.sends and not rig.learns
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_history_options_require_explicit_connection(hass, rig):
+    from custom_components.bark_alerts.const import CONF_HISTORY
+
+    hass.config.components.add("broadlink")
+    assert await async_setup_component(hass, "remote", {})
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    for data in (
+        {CONF_CAMERA: [rig.selected["camera"].entity_id]},
+        {CONF_BROADLINK: rig.device.id},
+    ):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
+    result = await configure_named(hass, result, "Example collar")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    entry = result["result"]
+    await hass.async_block_till_done()
+    options = await hass.config_entries.options.async_init(entry.entry_id)
+    options = await hass.config_entries.options.async_configure(
+        options["flow_id"], {CONF_HISTORY: True}
+    )
+    assert options["step_id"] == "history"
+    assert not entry.options[CONF_HISTORY]
+    options = await hass.config_entries.options.async_configure(
+        options["flow_id"], {"url": "ftp://example.test"}
+    )
+    assert options["errors"]["base"] == "invalid_history_connection"
+    assert not entry.options[CONF_HISTORY]
+    options = await hass.config_entries.options.async_configure(
+        options["flow_id"],
+        {
+            "url": "https://example.test",
+            "username": "viewer",
+            "password": "synthetic secret",
+        },
+    )
+    assert options["type"] == "create_entry"
+    await hass.async_block_till_done()
+    assert entry.options[CONF_HISTORY]
+    assert entry.options["history_connection"]["verify_ssl"] is True
     assert not rig.sends and not rig.learns
     await hass.config_entries.async_unload(entry.entry_id)

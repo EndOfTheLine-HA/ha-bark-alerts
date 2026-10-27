@@ -11,7 +11,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from homeassistant.components.media_source import Unresolvable
 from homeassistant.setup import async_setup_component
 
-from custom_components.bark_alerts import history as history_module
+from custom_components.bark_alerts import recording_api as history_module
 from custom_components.bark_alerts.const import CONF_HISTORY, DOMAIN
 from custom_components.bark_alerts.history import BarkHistory, HistoryError
 from custom_components.bark_alerts.media_source import (
@@ -192,21 +192,15 @@ async def test_download_errors_are_bounded_and_private(
     app.router.add_get("/{tail:.*}", respond)
     async with TestClient(TestServer(app)) as client:
         hass.config_entries.async_update_entry(
-            rig.frigate, data={"url": str(client.server.make_url("/"))}
+            controller.entry,
+            options={"history_connection": {"url": str(client.server.make_url("/"))}},
         )
-        hass.data["frigate"] = {
-            rig.frigate.entry_id: {
-                "client": SimpleNamespace(
-                    get_auth_headers=AsyncMock(return_value={}), validate_ssl=True
-                )
-            }
-        }
         monkeypatch.setattr(
             history_module, "async_get_clientsession", lambda _: client.session
         )
         monkeypatch.setattr(history_module, "MAX_DOWNLOAD", 100)
         with pytest.raises(HistoryError) as error:
-            await history_module.download_recording(
+            await history_module.FrigateRecordingClient().download(
                 hass, controller.entry, time.time() - 60
             )
         assert str(error.value) == expected
@@ -226,19 +220,15 @@ async def test_streamed_download_limit(hass, rig, controller, monkeypatch):
     app.router.add_get("/{tail:.*}", respond)
     async with TestClient(TestServer(app)) as client:
         hass.config_entries.async_update_entry(
-            rig.frigate, data={"url": str(client.server.make_url("/"))}
+            controller.entry,
+            options={"history_connection": {"url": str(client.server.make_url("/"))}},
         )
-        hass.data["frigate"] = {
-            rig.frigate.entry_id: {
-                "client": SimpleNamespace(get_auth_headers=AsyncMock(return_value={}))
-            }
-        }
         monkeypatch.setattr(
             history_module, "async_get_clientsession", lambda _: client.session
         )
         monkeypatch.setattr(history_module, "MAX_DOWNLOAD", 100)
         with pytest.raises(HistoryError, match="recording_too_large"):
-            await history_module.download_recording(
+            await history_module.FrigateRecordingClient().download(
                 hass, controller.entry, time.time() - 60
             )
 
@@ -320,18 +310,14 @@ async def test_download_uses_camera_that_triggered_event(
     )
     async with TestClient(TestServer(app)) as client:
         hass.config_entries.async_update_entry(
-            rig.frigate, data={"url": str(client.server.make_url("/"))}
+            controller.entry,
+            options={"history_connection": {"url": str(client.server.make_url("/"))}},
         )
-        hass.data["frigate"] = {
-            rig.frigate.entry_id: {
-                "client": SimpleNamespace(get_auth_headers=AsyncMock(return_value={}))
-            }
-        }
         monkeypatch.setattr(
             history_module, "async_get_clientsession", lambda _: client.session
         )
         assert (
-            await history_module.download_recording(
+            await history_module.FrigateRecordingClient().download(
                 hass, controller.entry, time.time() - 60, selected.id
             )
             == b"synthetic video"

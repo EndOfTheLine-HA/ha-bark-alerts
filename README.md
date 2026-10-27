@@ -257,10 +257,32 @@ recordings and cancels pending captures without sending RF.
   private household conversations and may be included in backups. Do not publish
   recordings or share their playback URLs.
 
-Frigate connection settings and authentication are reused from the triggering
-camera's integration. This compatibility adapter depends on Frigate's runtime
-client interface and reports unavailable capture if that interface changes.
-It does not change Frigate recording or retention settings.
+From v0.2.3, history uses Frigate's [documented HTTP API](https://docs.frigate.video/integrations/api/frigate-http-api/), independently of the Frigate HA integration's internal client.
+When enabling history, enter the **Frigate base URL** reachable from HA (without
+`/api`) and your own Frigate username/password. A viewer account is sufficient
+for cameras it can access. The documented authenticated API normally uses port
+8971. Use HTTPS and leave certificate verification on; only turn it off for a
+self-signed certificate you trust. Leave both credentials blank only for an
+already configured, trusted internal unauthenticated API endpoint. Do not
+expose that endpoint publicly or disable Frigate authentication to use history.
+All cameras in a history-enabled monitor must belong to one Frigate instance;
+use separate monitors for different servers, or leave history off.
+
+Bark Alerts calls `/api/login` for a JWT and the documented
+`/api/{camera}/start/{start}/end/{end}/clip.mp4` endpoint. Tokens stay in memory,
+expire naturally, and are renewed once on an unauthorized response. Requests
+never follow redirects. Login failures have a one-minute backoff. The connection
+is tested by the first capture; failures appear as a capture status and do not
+affect collar dispatch. No settings are read from Frigate's config entries,
+private runtime client, or storage, and recording/retention settings are unchanged.
+
+On upgrade from v0.2.0-0.2.2, existing clips remain playable. If history was
+enabled, open Configure and supply the API connection to resume capture; old
+connections are not copied automatically. Missing settings report
+`connection_required`. A blank password in the connection form preserves the
+saved password only when the URL and username are unchanged. Passwords are
+masked, never prefilled, and omitted from diagnostics; HA config backups can
+contain them and must remain private. FFmpeg must be available on the host PATH.
 
 ## Upgrading from separate camera monitors
 

@@ -48,7 +48,7 @@
       },
       "behavior": {
         "title": "Alert settings",
-        "description": "One monitor and cooldown cover all selected cameras. Fallback requires recent dog detection from the camera that heard the sound. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio.",
+        "description": "One monitor and cooldown cover all selected cameras. Fallback requires recent dog detection from the camera that heard the sound. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio. When enabled, the next screen configures a separate Frigate HTTP API connection for history.",
         "data": {
           "cooldown": "Cooldown (seconds)",
           "animal_fallback": "Use dog-gated animal-sound fallback",
@@ -56,6 +56,16 @@
           "repeats": "Beep command repetitions",
           "repeat_delay": "Delay between repetitions (seconds)",
           "save_bark_history": "Save the latest 25 bark audio clips"
+        }
+      },
+      "history": {
+        "title": "Connect to Frigate for audio history",
+        "description": "Enter the Frigate base URL reachable from Home Assistant, without /api. This is a separate connection configured in Bark Alerts; credentials are not copied from the Frigate integration. All selected cameras must belong to this Frigate instance. For the authenticated API, enter a Frigate viewer username and password. Leave both blank only for an existing trusted internal unauthenticated endpoint. Keep TLS verification on unless using a self-signed certificate you trust. A blank password keeps the saved password only when the URL and username are unchanged. Connection errors appear under Saved bark clips after capture; setup sends no RF commands.",
+        "data": {
+          "url": "Frigate base URL",
+          "username": "Frigate username (optional)",
+          "password": "Frigate password (optional; blank keeps unchanged)",
+          "verify_ssl": "Verify TLS certificate"
         }
       }
     },
@@ -69,7 +79,9 @@
       "missing_fallback": "Fallback requires enabled animal-sound and dog-occupancy sensors on this same camera. Configure them in Frigate first, or disable fallback.",
       "beep_confirmation_required": "Confirm that this is a beep-only command. Do not configure vibration or shock.",
       "invalid_command": "Enter both the learned device/group name and the single beep command name (1\u2013100 characters).",
-      "invalid_rf_code": "Enter a valid Broadlink RF packet in base64, optionally prefixed with b64:. IR packets are not accepted."
+      "invalid_rf_code": "Enter a valid Broadlink RF packet in base64, optionally prefixed with b64:. IR packets are not accepted.",
+      "invalid_history_connection": "Enter an HTTP(S) base URL without embedded credentials, a query or a fragment. Provide both username and password, or leave both blank for a trusted internal endpoint.",
+      "history_multiple_instances": "Audio history requires all selected cameras to belong to one Frigate instance. Use separate monitors for different Frigate servers, or turn history off."
     },
     "abort": {
       "no_cameras": "No enabled Frigate cameras found. Install and configure the Frigate Home Assistant integration first.",
@@ -81,7 +93,7 @@
     "step": {
       "init": {
         "title": "Alert settings",
-        "description": "One monitor and cooldown cover all selected cameras. Fallback requires recent dog detection from the camera that heard the sound. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio.",
+        "description": "One monitor and cooldown cover all selected cameras. Fallback requires recent dog detection from the camera that heard the sound. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio. When enabled, the next screen configures a separate Frigate HTTP API connection for history.",
         "data": {
           "cooldown": "Cooldown (seconds)",
           "animal_fallback": "Use dog-gated animal-sound fallback",
@@ -89,6 +101,16 @@
           "repeats": "Beep command repetitions",
           "repeat_delay": "Delay between repetitions (seconds)",
           "save_bark_history": "Save the latest 25 bark audio clips"
+        }
+      },
+      "history": {
+        "title": "Connect to Frigate for audio history",
+        "description": "Enter the Frigate base URL reachable from Home Assistant, without /api. This is a separate connection configured in Bark Alerts; credentials are not copied from the Frigate integration. All selected cameras must belong to this Frigate instance. For the authenticated API, enter a Frigate viewer username and password. Leave both blank only for an existing trusted internal unauthenticated endpoint. Keep TLS verification on unless using a self-signed certificate you trust. A blank password keeps the saved password only when the URL and username are unchanged. Connection errors appear under Saved bark clips after capture; setup sends no RF commands.",
+        "data": {
+          "url": "Frigate base URL",
+          "username": "Frigate username (optional)",
+          "password": "Frigate password (optional; blank keeps unchanged)",
+          "verify_ssl": "Verify TLS certificate"
         }
       }
     },
@@ -101,7 +123,9 @@
       "missing_fallback": "Fallback requires enabled animal-sound and dog-occupancy sensors on this same camera. Configure them in Frigate first, or disable fallback.",
       "beep_confirmation_required": "Confirm that this is a beep-only command. Do not configure vibration or shock.",
       "invalid_command": "Enter both the learned device/group name and the single beep command name (1\u2013100 characters).",
-      "invalid_rf_code": "Enter a valid Broadlink RF packet in base64, optionally prefixed with b64:. IR packets are not accepted."
+      "invalid_rf_code": "Enter a valid Broadlink RF packet in base64, optionally prefixed with b64:. IR packets are not accepted.",
+      "invalid_history_connection": "Enter an HTTP(S) base URL without embedded credentials, a query or a fragment. Provide both username and password, or leave both blank for a trusted internal endpoint.",
+      "history_multiple_instances": "Audio history requires all selected cameras to belong to one Frigate instance. Use separate monitors for different Frigate servers, or turn history off."
     }
   },
   "selector": {

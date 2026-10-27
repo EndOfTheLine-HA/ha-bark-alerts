@@ -2,7 +2,7 @@
 
 Release review: 2026-10-26
 
-Version 0.2.2 adds a keep-existing-command choice for reconfiguration on the
+Version 0.2.2 added a keep-existing-command choice for reconfiguration on the
 same Broadlink transmitter. It validates and reuses only this entry's own
 stored command after the user's explicit choice, without placing an RF code
 in any form or reading Broadlink storage. New setups, changed transmitters
@@ -84,7 +84,7 @@ establish a command's physical effect.
   manager, real entity platforms, and fake remote service handlers.
 - Camera → Broadlink → command → settings flow; missing/disabled sources and
   IR-only devices rejected; optional fallback requires both same-camera sources.
-- Actual HA setup of all eight named-command-mode entities, options reload,
+- Actual HA setup of all ten named-command-mode entities, options reload,
   same-pair reconfiguration, duplicate-pair rejection, and unload.
 - Safe defaults, dry run, per-entry cooldown, burst rejection, unavailable
   devices, stale/retained/startup events, same-camera gating/expiry, and entity
@@ -93,7 +93,7 @@ establish a command's physical effect.
   reporting, cancellation, raw-code handling, and diagnostics redaction.
 - HACS layout, metadata, translation parity, and absence of embedded private
   addresses or real RF payloads in the integration source.
-- Local 256/512-pixel PNG brand assets generated from the included original SVG.
+- Local 256/512-pixel PNG brand assets.
   The community icon is not an official Frigate, Broadlink, or collar logo.
 - Version 0.1.1 compatibility regressions cover `B1` raw-code input, optional
   `b64:` prefixes, longer synthetic packets, and setup without transmission.
@@ -144,8 +144,19 @@ Tests cover retention, restart, clear/unload cancellation, malformed indices,
 HTTP authentication, streamed-download limits, per-camera download routing,
 disarmed/dry-run/cooldown outcomes, simultaneous-camera suppression, same-camera
 dog gating, and real HA notification dispatch/removal. RF services and recording
-responses are synthetic. The Frigate recording adapter reuses its runtime
-client for authentication and fails unavailable on incompatible interfaces.
+responses are synthetic. Version 0.2.3 removes the private Frigate runtime-client
+adapter. Recording access uses only an explicitly configured connection owned
+by Bark Alerts and Frigate's documented HTTP login and recording endpoints.
+Neither Frigate config-entry data nor its runtime client is read. Registry
+identifiers still resolve the selected camera name as documented above.
+API credentials are never prefilled, copied from another entry, or included in
+diagnostics. A blank password preserves a value only for the unchanged URL and
+username. TLS verification defaults on, redirects are refused, downloads are
+bounded, expired tokens retry once, and failed logins back off for one minute.
+History is off by default; legacy entries need explicit API configuration to
+resume captures, while existing clips remain accessible. Tests include a local
+HTTP server and no live Frigate or transmitter. Passing checks do not constitute
+maintainer approval or guarantee acceptance in HACS.
 Real FFmpeg tests decode generated audio into bounded mono 16 kHz WAV and
 reject video with no audio. Actual new-build Frigate capture and audible
 reception remain hardware-stage checks; previous versions' household
@@ -175,3 +186,9 @@ the local checks above do not substitute for those results.
 Before a public release, run the GitHub validators and perform a staged,
 off-animal hardware check with user-owned codes. Disable the legacy bark
 automation before enabling automatic sends on the same equipment.
+
+
+Version 0.2.3 local verification: the complete suite passes on Linux, Python
+3.14.9 and Home Assistant 2026.10.4, including generated-media FFmpeg decoding.
+The published workflow separately validates the declared minimum HA version,
+HACS and Hassfest. No live Frigate capture is claimed by these tests.

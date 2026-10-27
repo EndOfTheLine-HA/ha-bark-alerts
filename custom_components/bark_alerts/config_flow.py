@@ -29,6 +29,7 @@ from .const import (
     CONF_DOG_WINDOW,
     CONF_FALLBACK,
     CONF_HISTORY,
+    CONF_HISTORY_CONNECTION,
     CONF_REPEATS,
     CONF_RF_CODE,
     DEFAULTS,
@@ -44,6 +45,7 @@ from .discovery import (
     monitor_sources,
     selected_camera_ids,
 )
+from .recording_api import normalize_connection, validate_history_cameras
 from .validation import normalize_command, normalize_command_name
 
 
@@ -73,6 +75,26 @@ def behavior_schema(defaults: dict[str, Any]) -> vol.Schema:
         selector.BooleanSelector()
     )
     return vol.Schema(fields)
+
+
+def history_schema(previous: dict) -> vol.Schema:
+    """Never put saved passwords in a form response."""
+    return vol.Schema(
+        {
+            vol.Required(
+                "url", default=previous.get("url", "")
+            ): selector.TextSelector(),
+            vol.Optional(
+                "username", default=previous.get("username", "")
+            ): selector.TextSelector(),
+            vol.Optional("password", default=""): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+            ),
+            vol.Required(
+                "verify_ssl", default=previous.get("verify_ssl", True)
+            ): selector.BooleanSelector(),
+        }
+    )
 
 
 class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
@@ -328,28 +350,50 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
                     key: user_input.get(key, default)
                     for key, default in DEFAULTS.items()
                 }
-                title = (
-                    f"Bark alerts: {sources[0].name}"
-                    if len(sources) == 1
-                    else "Bark alerts: multi-camera monitor"
-                )
-                if self._reconfigure:
-                    # The regular update listener owns reloading the entry.
-                    self.hass.config_entries.async_update_entry(
-                        self._reconfigure,
-                        title=title,
-                        data=self._data,
-                        options=options,
-                        unique_id=self.unique_id,
-                    )
-                    return self.async_abort(reason="reconfigured")
-                return self.async_create_entry(
-                    title=title, data=self._data, options=options
-                )
+                self._pending_options = options
+                if options[CONF_HISTORY]:
+                    return await self.async_step_history()
+                return self._finish(options)
         return self.async_show_form(
             step_id="behavior",
             errors=errors,
             data_schema=behavior_schema(self._options),
+        )
+
+    def _finish(self, options) -> ConfigFlowResult:
+        sources = monitor_sources(self.hass, self._data)
+        title = (
+            f"Bark alerts: {sources[0].name}"
+            if len(sources) == 1
+            else "Bark alerts: multi-camera monitor"
+        )
+        if self._reconfigure:
+            # The regular update listener owns reloading the entry.
+            self.hass.config_entries.async_update_entry(
+                self._reconfigure,
+                title=title,
+                data=self._data,
+                options=options,
+                unique_id=self.unique_id,
+            )
+            return self.async_abort(reason="reconfigured")
+        return self.async_create_entry(title=title, data=self._data, options=options)
+
+    async def async_step_history(self, user_input=None) -> ConfigFlowResult:
+        previous = self._options.get(CONF_HISTORY_CONNECTION, {})
+        errors = {}
+        if user_input is not None:
+            try:
+                validate_history_cameras(self.hass, self._data)
+                settings = normalize_connection(user_input, previous)
+            except DiscoveryError as err:
+                errors["base"] = err.code
+            else:
+                return self._finish(
+                    {**self._pending_options, CONF_HISTORY_CONNECTION: settings}
+                )
+        return self.async_show_form(
+            step_id="history", errors=errors, data_schema=history_schema(previous)
         )
 
     async def async_step_reconfigure(self, user_input=None) -> ConfigFlowResult:
@@ -378,9 +422,30 @@ class BarkAlertsOptionsFlow(OptionsFlow):
             except DiscoveryError as err:
                 errors["base"] = err.code
             else:
+                if user_input.get(CONF_HISTORY):
+                    self._pending_options = user_input
+                    return await self.async_step_history()
                 return self.async_create_entry(title="", data=user_input)
         return self.async_show_form(
             step_id="init",
             data_schema=behavior_schema(dict(self.config_entry.options)),
             errors=errors,
+        )
+
+    async def async_step_history(self, user_input=None) -> ConfigFlowResult:
+        previous = self.config_entry.options.get(CONF_HISTORY_CONNECTION, {})
+        errors = {}
+        if user_input is not None:
+            try:
+                validate_history_cameras(self.hass, self.config_entry.data)
+                settings = normalize_connection(user_input, previous)
+            except DiscoveryError as err:
+                errors["base"] = err.code
+            else:
+                return self.async_create_entry(
+                    title="",
+                    data={**self._pending_options, CONF_HISTORY_CONNECTION: settings},
+                )
+        return self.async_show_form(
+            step_id="history", errors=errors, data_schema=history_schema(previous)
         )

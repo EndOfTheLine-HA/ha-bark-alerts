@@ -3,7 +3,7 @@
 from homeassistant.const import Platform
 
 DOMAIN = "bark_alerts"
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR, Platform.SWITCH]
 
 CONF_CAMERA = "camera"
@@ -21,6 +21,7 @@ CONF_DOG_WINDOW = "dog_window"
 CONF_REPEATS = "repeats"
 CONF_DELAY = "repeat_delay"
 CONF_HISTORY = "save_bark_history"
+CONF_HISTORY_CONNECTION = "history_connection"
 
 MODE_LEARNED = "learned"
 MODE_RAW = "raw"
