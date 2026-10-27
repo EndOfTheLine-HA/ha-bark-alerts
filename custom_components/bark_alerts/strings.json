@@ -3,10 +3,10 @@
   "config": {
     "step": {
       "user": {
-        "title": "Choose your Frigate camera",
-        "description": "Select the camera that hears the barking. Its bark sensor is found automatically; no entity-ID typing is needed. Audio detection and the bark label must already be enabled in Frigate.",
+        "title": "Choose your Frigate cameras",
+        "description": "Select one or more cameras to monitor together. Each camera needs an enabled bark sensor. All selected cameras share one Armed switch and cooldown. Cameras added later are not selected automatically.",
         "data": {
-          "camera": "Frigate camera"
+          "camera": "Frigate cameras"
         }
       },
       "broadlink": {
@@ -18,7 +18,7 @@
       },
       "command": {
         "title": "Choose your beep command source",
-        "description": "Use typed names for a command saved by Home Assistant's Broadlink integration, or use your privately captured RF code. Setup does not learn, test, or transmit anything; the entry starts disarmed and in dry-run mode.",
+        "description": "Use typed names for a command saved by Home Assistant's Broadlink integration, or use your privately captured RF code. Setup does not learn, test, or transmit anything; the entry starts with Armed off and Dry run off.",
         "data": {
           "command_mode": "Command source"
         }
@@ -40,7 +40,7 @@
       },
       "raw_command": {
         "title": "Enter your private beep RF code",
-        "description": "Paste your own captured Broadlink RF base64 code, optionally prefixed with b64:. Never use a shock or vibration command. No learned device/group or command name is needed. Setup sends nothing; the entry starts disarmed and in dry-run mode.",
+        "description": "Paste your own captured Broadlink RF base64 code, optionally prefixed with b64:. Never use a shock or vibration command. No learned device/group or command name is needed. Setup sends nothing; the entry starts with Armed off and Dry run off.",
         "data": {
           "rf_code": "Private RF base64 code",
           "beep_only_confirmed": "I confirm this command only beeps, not vibration or shock"
@@ -48,13 +48,14 @@
       },
       "behavior": {
         "title": "Alert settings",
-        "description": "Cooldown applies to automatic alerts and manual tests. Animal fallback requires recent dog detection from this same camera. Every restart or reload resets Armed to off and Dry run to on.",
+        "description": "One monitor and cooldown cover all selected cameras. Fallback requires recent dog detection from the camera that heard the sound. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio.",
         "data": {
           "cooldown": "Cooldown (seconds)",
           "animal_fallback": "Use dog-gated animal-sound fallback",
           "dog_window": "Recent-dog window (seconds)",
           "repeats": "Beep command repetitions",
-          "repeat_delay": "Delay between repetitions (seconds)"
+          "repeat_delay": "Delay between repetitions (seconds)",
+          "save_bark_history": "Save the latest 25 bark audio clips"
         }
       }
     },
@@ -67,26 +68,27 @@
       "rf_not_supported": "This device has no Broadlink RF transmitter. IR-only mini models cannot operate an RF collar.",
       "missing_fallback": "Fallback requires enabled animal-sound and dog-occupancy sensors on this same camera. Configure them in Frigate first, or disable fallback.",
       "beep_confirmation_required": "Confirm that this is a beep-only command. Do not configure vibration or shock.",
-      "invalid_command": "Enter both the learned device/group name and the single beep command name (1–100 characters).",
+      "invalid_command": "Enter both the learned device/group name and the single beep command name (1\u2013100 characters).",
       "invalid_rf_code": "Enter a valid Broadlink RF packet in base64, optionally prefixed with b64:. IR packets are not accepted."
     },
     "abort": {
       "no_cameras": "No enabled Frigate cameras found. Install and configure the Frigate Home Assistant integration first.",
-      "already_configured": "This camera/Broadlink pairing already exists.",
-      "reconfigured": "Configuration updated. The entry is disarmed and in dry-run mode again."
+      "already_configured": "This camera selection and Broadlink pairing already exists.",
+      "reconfigured": "Configuration updated. Armed and Dry run are off."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Alert settings",
-        "description": "Changing options reloads this entry, disarms it, and enables dry run.",
+        "description": "One monitor and cooldown cover all selected cameras. Fallback requires recent dog detection from the camera that heard the sound. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio.",
         "data": {
           "cooldown": "Cooldown (seconds)",
           "animal_fallback": "Use dog-gated animal-sound fallback",
           "dog_window": "Recent-dog window (seconds)",
           "repeats": "Beep command repetitions",
-          "repeat_delay": "Delay between repetitions (seconds)"
+          "repeat_delay": "Delay between repetitions (seconds)",
+          "save_bark_history": "Save the latest 25 bark audio clips"
         }
       }
     },
@@ -98,7 +100,7 @@
       "rf_not_supported": "This device has no Broadlink RF transmitter. IR-only mini models cannot operate an RF collar.",
       "missing_fallback": "Fallback requires enabled animal-sound and dog-occupancy sensors on this same camera. Configure them in Frigate first, or disable fallback.",
       "beep_confirmation_required": "Confirm that this is a beep-only command. Do not configure vibration or shock.",
-      "invalid_command": "Enter both the learned device/group name and the single beep command name (1–100 characters).",
+      "invalid_command": "Enter both the learned device/group name and the single beep command name (1\u2013100 characters).",
       "invalid_rf_code": "Enter a valid Broadlink RF packet in base64, optionally prefixed with b64:. IR packets are not accepted."
     }
   },
@@ -125,6 +127,9 @@
       },
       "learn_beep": {
         "name": "Learn beep (receive RF)"
+      },
+      "clear_history": {
+        "name": "Clear bark audio history"
       }
     },
     "binary_sensor": {
@@ -154,6 +159,9 @@
       },
       "last_request": {
         "name": "Last command request"
+      },
+      "history": {
+        "name": "Saved bark clips"
       }
     }
   },
@@ -180,7 +188,7 @@
       "message": "Confirm that this is a beep-only command. Do not configure vibration or shock."
     },
     "invalid_command": {
-      "message": "Enter both the learned device/group name and the single beep command name (1–100 characters)."
+      "message": "Enter both the learned device/group name and the single beep command name (1\u2013100 characters)."
     },
     "invalid_rf_code": {
       "message": "Enter a valid Broadlink RF packet in base64, optionally prefixed with b64:. IR packets are not accepted."

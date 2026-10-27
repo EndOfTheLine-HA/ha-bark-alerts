@@ -19,7 +19,7 @@ async def async_setup_entry(
     entry: BarkAlertsConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    keys = ["test_beep"]
+    keys = ["test_beep", "clear_history"]
     if entry.data[CONF_COMMAND_MODE] == MODE_LEARNED:
         keys.append("learn_beep")
     async_add_entities(BarkAlertsButton(entry.runtime_data, key) for key in keys)
@@ -33,12 +33,18 @@ class BarkAlertsButton(BarkAlertsEntity, ButtonEntity):
     def __init__(self, controller, key: str) -> None:
         super().__init__(controller, key)
         self.key = key
-        self._attr_icon = "mdi:volume-high" if key == "test_beep" else "mdi:remote"
+        self._attr_icon = {
+            "test_beep": "mdi:volume-high",
+            "learn_beep": "mdi:remote",
+            "clear_history": "mdi:delete-outline",
+        }[key]
 
     async def async_press(self) -> None:
         if self.key == "test_beep":
             await self.controller.async_alert(
                 "manual", manual=True, context=self._context
             )
+        elif self.key == "clear_history":
+            await self.controller.history.clear()
         else:
             await self.controller.async_learn(context=self._context)

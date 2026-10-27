@@ -6,9 +6,11 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Any
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP, STATE_OFF, STATE_ON
 from homeassistant.core import Context, Event, HomeAssistant, callback
@@ -20,7 +22,6 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_BROADLINK,
-    CONF_CAMERA_ID,
     CONF_COMMAND,
     CONF_COMMAND_MODE,
     CONF_COOLDOWN,
@@ -28,6 +29,7 @@ from .const import (
     CONF_DEVICE,
     CONF_DOG_WINDOW,
     CONF_FALLBACK,
+    CONF_HISTORY,
     CONF_REPEATS,
     CONF_RF_CODE,
     DEFAULTS,
@@ -40,38 +42,44 @@ from .discovery import (
     broadlink_remote,
     camera_sources,
     entity_id,
+    selected_camera_ids,
 )
 
 _LOGGER = logging.getLogger(__name__)
+_HISTORY_ITEM = ContextVar("bark_history_item", default=None)
 
 
 class BarkAlertsController:
-    """One camera/remote pairing. RF dispatch is not proof of audible reception."""
+    """One monitor and shared cooldown for all selected cameras."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
-        sources: CameraSources,
+        sources: CameraSources | list[CameraSources],
         remote_id: str,
         *,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.hass = hass
         self.entry = entry
-        self.sources = sources
+        source_list = sources if isinstance(sources, list) else [sources]
+        self.sources = source_list[0]
+        self.all_sources = {source.camera_id: source for source in source_list}
+        self._valid_cameras: set[str] = set(self.all_sources)
         self.remote_id = remote_id
         self.clock = clock
         self.signal = f"{DOMAIN}_{entry.entry_id}"
         # Deliberately never restored: a restart/reconfigure requires re-arming.
         self.armed = False
-        self.dry_run = True
+        self.dry_run = False
+        self._dry_run_warning = False
         self.outcome = "idle"
         self.last_detection: datetime | None = None
         self.last_request: datetime | None = None
         self.request_count = 0
         self.dry_run_count = 0
-        self._last_dog: float | None = None
+        self._last_dog: dict[str, float] = {}
         self._next_allowed = 0.0
         self._lock = asyncio.Lock()
         self._stopped = False
@@ -80,6 +88,7 @@ class BarkAlertsController:
         self._unsubs: list[Callable[[], None]] = []
         self._tasks: set[asyncio.Task] = set()
         self._watched: set[str] = set()
+        self.history = None
 
     def option(self, key: str) -> Any:
         return self.entry.options.get(key, DEFAULTS[key])
@@ -94,20 +103,28 @@ class BarkAlertsController:
         return (
             not self._stopped
             and self._bindings_valid
-            and self._state(self.sources.bark_id) in (STATE_ON, STATE_OFF)
+            and any(
+                source.camera_id in self._valid_cameras
+                and self._state(source.bark_id) in (STATE_ON, STATE_OFF)
+                for source in self.all_sources.values()
+            )
             and self._state(self.remote_id) == STATE_ON
             and self.hass.services.has_service("remote", "send_command")
         )
 
     @property
     def dog_recent(self) -> bool:
-        state = self._state(self.sources.dog_id)
+        return self._dog_recent(self.sources)
+
+    def _dog_recent(self, sources: CameraSources) -> bool:
+        state = self._state(sources.dog_id)
+        last_dog = self._last_dog.get(sources.camera_id)
         return (
-            self._last_dog is not None
+            last_dog is not None
             and state in (STATE_ON, STATE_OFF)
             and (
                 state == STATE_ON
-                or self.clock() - self._last_dog <= self.option(CONF_DOG_WINDOW)
+                or self.clock() - last_dog <= self.option(CONF_DOG_WINDOW)
             )
         )
 
@@ -130,23 +147,31 @@ class BarkAlertsController:
         if self._state_unsub:
             self._state_unsub()
             self._state_unsub = None
+        self._valid_cameras.clear()
+        for camera_id in selected_camera_ids(self.entry.data):
+            try:
+                source = camera_sources(self.hass, camera_id)
+            except DiscoveryError:
+                self._last_dog.pop(camera_id, None)
+                continue
+            previous = self.all_sources.get(camera_id)
+            if previous and previous.dog_id != source.dog_id:
+                self._last_dog.pop(camera_id, None)
+            self.all_sources[camera_id] = source
+            if not self.option(CONF_FALLBACK) or (source.animal_id and source.dog_id):
+                self._valid_cameras.add(camera_id)
         try:
-            self.sources = camera_sources(self.hass, self.entry.data[CONF_CAMERA_ID])
             self.remote_id = broadlink_remote(
                 self.hass, self.entry.data[CONF_BROADLINK]
             ).id
-            self._bindings_valid = not self.option(CONF_FALLBACK) or bool(
-                self.sources.animal_id and self.sources.dog_id
-            )
+            self._bindings_valid = bool(self._valid_cameras)
         except DiscoveryError:
             self._bindings_valid = False
-        registry_ids = (
-            self.sources.camera_id,
-            self.sources.bark_id,
-            self.sources.animal_id,
-            self.sources.dog_id,
-            self.remote_id,
-        )
+        registry_ids = [self.remote_id]
+        for source in self.all_sources.values():
+            registry_ids.extend(
+                (source.camera_id, source.bark_id, source.animal_id, source.dog_id)
+            )
         self._watched = {
             current for key in registry_ids if (current := entity_id(self.hass, key))
         }
@@ -160,16 +185,21 @@ class BarkAlertsController:
     def _registry_changed(self, event: Event) -> None:
         changed_id = event.data.get("entity_id")
         changed = er.async_get(self.hass).async_get(changed_id) if changed_id else None
-        camera = er.async_get(self.hass).async_get(self.sources.camera_id)
+        cameras = [
+            er.async_get(self.hass).async_get(key)
+            for key in selected_camera_ids(self.entry.data)
+        ]
         if changed_id not in self._watched and not (
             changed
             and (
-                changed.id == self.sources.camera_id
+                changed.id in selected_camera_ids(self.entry.data)
                 or changed.device_id == self.entry.data[CONF_BROADLINK]
                 or (
-                    camera
-                    and changed.platform == "frigate"
-                    and changed.device_id == camera.device_id
+                    changed.platform == "frigate"
+                    and any(
+                        camera and changed.device_id == camera.device_id
+                        for camera in cameras
+                    )
                 )
             )
         ):
@@ -180,11 +210,14 @@ class BarkAlertsController:
     def _state_changed(self, event: Event) -> None:
         old, new = event.data.get("old_state"), event.data.get("new_state")
         current_id = event.data["entity_id"]
-        if current_id == entity_id(self.hass, self.sources.dog_id):
-            if new is None or new.state not in (STATE_ON, STATE_OFF):
-                self._last_dog = None
-            elif old is not None and old.state == STATE_OFF and new.state == STATE_ON:
-                self._last_dog = self.clock()
+        for sources in self.all_sources.values():
+            if current_id == entity_id(self.hass, sources.dog_id):
+                if new is None or new.state not in (STATE_ON, STATE_OFF):
+                    self._last_dog.pop(sources.camera_id, None)
+                elif (
+                    old is not None and old.state == STATE_OFF and new.state == STATE_ON
+                ):
+                    self._last_dog[sources.camera_id] = self.clock()
         self.async_notify()
         # Ignore startup, retained ON, recovery from unavailable, and attributes.
         if (
@@ -194,21 +227,46 @@ class BarkAlertsController:
             or new.state != STATE_ON
         ):
             return
-        source: str | None = None
-        if current_id == entity_id(self.hass, self.sources.bark_id):
-            source = "bark"
-        elif self.option(CONF_FALLBACK) and current_id == entity_id(
-            self.hass, self.sources.animal_id
-        ):
-            source = "animal"
-        if source:
-            task = self.hass.async_create_task(
-                self.async_alert(source, context=event.context),
-                f"{DOMAIN} alert",
-                eager_start=False,
+        for sources in self.all_sources.values():
+            source: str | None = None
+            if current_id == entity_id(self.hass, sources.bark_id):
+                source = "bark"
+            elif self.option(CONF_FALLBACK) and current_id == entity_id(
+                self.hass, sources.animal_id
+            ):
+                source = "animal"
+            if source:
+                task = self.hass.async_create_task(
+                    self.async_alert(
+                        source, context=event.context, camera_id=sources.camera_id
+                    ),
+                    f"{DOMAIN} alert",
+                    eager_start=False,
+                )
+                self._tasks.add(task)
+                task.add_done_callback(self._tasks.discard)
+                break
+
+    @callback
+    def set_control(self, key: str, value: bool) -> None:
+        """Keep explicit testing enabled and explain why an armed monitor is silent."""
+        setattr(self, key, value)
+        warning = self.armed and self.dry_run
+        notification_id = f"{DOMAIN}_{self.entry.entry_id}_dry_run"
+        if warning:
+            persistent_notification.async_create(
+                self.hass,
+                "This bark monitor is armed, but Dry run is ON. "
+                "Barks will be detected without sending automatic beep commands. "
+                "Turn Dry run OFF on the integration device to allow automatic beeps, "
+                "or turn Armed OFF to stop automatic processing.",
+                title=f"{self.entry.title}: dry run blocks automatic beeps",
+                notification_id=notification_id,
             )
-            self._tasks.add(task)
-            task.add_done_callback(self._tasks.discard)
+        elif self._dry_run_warning:
+            persistent_notification.async_dismiss(self.hass, notification_id)
+        self._dry_run_warning = warning
+        self.async_notify()
 
     @callback
     def async_notify(self) -> None:
@@ -217,6 +275,8 @@ class BarkAlertsController:
 
     @callback
     def _record(self, outcome: str, source: str) -> None:
+        if self.history and (item_id := _HISTORY_ITEM.get()):
+            self.history.outcome(item_id, outcome)
         self.outcome = outcome
         self.async_notify()
         if not self._stopped:
@@ -231,22 +291,58 @@ class BarkAlertsController:
         *,
         manual: bool = False,
         context: Context | None = None,
+        camera_id: str | None = None,
+    ) -> None:
+        """Capture selected bark episodes independently of automatic beep gates."""
+        selected_id = camera_id or self.sources.camera_id
+        item_id = None
+        if (
+            not self._stopped
+            and not manual
+            and source == "bark"
+            and selected_id in self._valid_cameras
+            and self.history
+            and self.option(CONF_HISTORY)
+        ):
+            item_id = self.history.add(dt_util.utcnow().timestamp(), selected_id)
+        token = _HISTORY_ITEM.set(item_id)
+        try:
+            await self._async_alert(
+                source, manual=manual, context=context, camera_id=camera_id
+            )
+        finally:
+            _HISTORY_ITEM.reset(token)
+
+    async def _async_alert(
+        self,
+        source: str,
+        *,
+        manual: bool = False,
+        context: Context | None = None,
+        camera_id: str | None = None,
     ) -> None:
         """Request at most one bounded send; never retry or queue a later beep."""
         if self._stopped:
             return
         if not manual:
+            sources = self.all_sources.get(camera_id or self.sources.camera_id)
             self.last_detection = dt_util.utcnow()
             if not self.armed:
                 self._record("disarmed", source)
                 return
-            if not self._bindings_valid or self._state(self.sources.bark_id) not in (
-                STATE_ON,
-                STATE_OFF,
+            if (
+                not self._bindings_valid
+                or sources is None
+                or sources.camera_id not in self._valid_cameras
+                or self._state(sources.bark_id)
+                not in (
+                    STATE_ON,
+                    STATE_OFF,
+                )
             ):
                 self._record("source_unavailable", source)
                 return
-            if source == "animal" and not self.dog_recent:
+            if source == "animal" and not self._dog_recent(sources):
                 self._record("dog_not_recent", source)
                 return
         if self._lock.locked():
@@ -355,7 +451,16 @@ class BarkAlertsController:
     @callback
     def async_stop(self) -> None:
         """Discard pending tasks; do not leave a delayed command behind."""
+        if self._stopped:
+            return
+        if self._dry_run_warning:
+            persistent_notification.async_dismiss(
+                self.hass, f"{DOMAIN}_{self.entry.entry_id}_dry_run"
+            )
+            self._dry_run_warning = False
         self._stopped = True
+        if self.history:
+            self.history.stop()
         self.armed = False
         if self._state_unsub:
             self._state_unsub()

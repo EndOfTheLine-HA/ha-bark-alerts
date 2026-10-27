@@ -1,14 +1,23 @@
 {
   "domain": "bark_alerts",
   "name": "Bark Alerts",
-  "after_dependencies": ["broadlink"],
-  "codeowners": ["@endoftheline818"],
+  "after_dependencies": [
+    "broadlink"
+  ],
+  "codeowners": [
+    "@endoftheline818"
+  ],
   "config_flow": true,
-  "dependencies": ["remote"],
+  "dependencies": [
+    "http",
+    "media_source",
+    "persistent_notification",
+    "remote"
+  ],
   "documentation": "https://github.com/EndOfTheLine-HA/ha-bark-alerts",
   "integration_type": "helper",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/EndOfTheLine-HA/ha-bark-alerts/issues",
   "requirements": [],
-  "version": "0.1.4"
+  "version": "0.2.0"
 }

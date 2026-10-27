@@ -43,9 +43,7 @@ class BarkAlertsSwitch(BarkAlertsEntity, SwitchEntity):
         return getattr(self.controller, self.key)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        setattr(self.controller, self.key, True)
-        self.controller.async_notify()
+        self.controller.set_control(self.key, True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        setattr(self.controller, self.key, False)
-        self.controller.async_notify()
+        self.controller.set_control(self.key, False)

@@ -6,9 +6,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import CONF_BROADLINK, CONF_CAMERA_ID, CONF_FALLBACK, DEFAULTS, PLATFORMS
+from .const import CONF_BROADLINK, CONF_FALLBACK, DEFAULTS, PLATFORMS
 from .controller import BarkAlertsController
-from .discovery import DiscoveryError, broadlink_remote, camera_sources
+from .discovery import DiscoveryError, broadlink_remote, monitor_sources
+from .history import BarkHistory
+from .media_source import register_history_view
 
 type BarkAlertsConfigEntry = ConfigEntry[BarkAlertsController]
 
@@ -16,10 +18,10 @@ type BarkAlertsConfigEntry = ConfigEntry[BarkAlertsController]
 async def async_setup_entry(hass: HomeAssistant, entry: BarkAlertsConfigEntry) -> bool:
     """Attach to existing entities; never send or learn during setup."""
     try:
-        sources = camera_sources(hass, entry.data[CONF_CAMERA_ID])
+        sources = monitor_sources(hass, entry.data, strict=False)
         remote = broadlink_remote(hass, entry.data[CONF_BROADLINK])
         if entry.options.get(CONF_FALLBACK, DEFAULTS[CONF_FALLBACK]) and not (
-            sources.animal_id and sources.dog_id
+            all(source.animal_id and source.dog_id for source in sources)
         ):
             raise DiscoveryError("missing_fallback")
     except DiscoveryError as err:
@@ -28,6 +30,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: BarkAlertsConfigEntry) -
         ) from err
     controller = BarkAlertsController(hass, entry, sources, remote.id)
     entry.runtime_data = controller
+    controller.history = BarkHistory(hass, entry, controller.async_notify)
+    await controller.history.initialize()
+    register_history_view(hass)
     controller.async_start()
     entry.async_on_unload(controller.async_stop)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
@@ -38,6 +43,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: BarkAlertsConfigEntry) -
 async def async_unload_entry(hass: HomeAssistant, entry: BarkAlertsConfigEntry) -> bool:
     """Detach listeners and cancel pending work when unloaded."""
     entry.runtime_data.async_stop()
+    if entry.runtime_data.history:
+        await entry.runtime_data.history.close()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

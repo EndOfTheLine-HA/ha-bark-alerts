@@ -21,7 +21,7 @@ async def async_setup_entry(
 ) -> None:
     async_add_entities(
         BarkAlertsSensor(entry.runtime_data, key)
-        for key in ("outcome", "last_detection", "last_request")
+        for key in ("outcome", "last_detection", "last_request", "history")
     )
 
 
@@ -32,17 +32,32 @@ class BarkAlertsSensor(BarkAlertsEntity, SensorEntity):
         super().__init__(controller, key)
         self.key = key
         self._attr_device_class = (
-            SensorDeviceClass.ENUM if key == "outcome" else SensorDeviceClass.TIMESTAMP
+            None
+            if key == "history"
+            else (
+                SensorDeviceClass.ENUM
+                if key == "outcome"
+                else SensorDeviceClass.TIMESTAMP
+            )
         )
         if key == "outcome":
             self._attr_options = list(OUTCOMES)
 
     @property
     def native_value(self):
+        if self.key == "history":
+            return sum(
+                row["status"] == "ready" for row in self.controller.history.items
+            )
         return getattr(self.controller, self.key)
 
     @property
     def extra_state_attributes(self):
+        if self.key == "history":
+            return {
+                "last_capture_status": self.controller.history.status,
+                "episodes": len(self.controller.history.items),
+            }
         if self.key == "outcome":
             return {
                 "command_requests": self.controller.request_count,

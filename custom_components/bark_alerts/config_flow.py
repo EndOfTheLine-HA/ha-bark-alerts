@@ -20,6 +20,7 @@ from .const import (
     CONF_BROADLINK,
     CONF_CAMERA,
     CONF_CAMERA_ID,
+    CONF_CAMERA_IDS,
     CONF_COMMAND,
     CONF_COMMAND_MODE,
     CONF_COOLDOWN,
@@ -27,6 +28,7 @@ from .const import (
     CONF_DEVICE,
     CONF_DOG_WINDOW,
     CONF_FALLBACK,
+    CONF_HISTORY,
     CONF_REPEATS,
     CONF_RF_CODE,
     DEFAULTS,
@@ -34,7 +36,13 @@ from .const import (
     MODE_LEARNED,
     MODE_RAW,
 )
-from .discovery import DiscoveryError, broadlink_remote, camera_sources
+from .discovery import (
+    DiscoveryError,
+    broadlink_remote,
+    camera_sources,
+    monitor_sources,
+    selected_camera_ids,
+)
 from .validation import normalize_command, normalize_command_name
 
 
@@ -60,11 +68,14 @@ def behavior_schema(defaults: dict[str, Any]) -> vol.Schema:
     fields[vol.Required(CONF_FALLBACK, default=defaults.get(CONF_FALLBACK, False))] = (
         selector.BooleanSelector()
     )
+    fields[vol.Required(CONF_HISTORY, default=defaults.get(CONF_HISTORY, False))] = (
+        selector.BooleanSelector()
+    )
     return vol.Schema(fields)
 
 
 class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
-    """Pair a camera with one existing RF-capable Broadlink device."""
+    """Pair selected cameras with one existing RF-capable Broadlink device."""
 
     VERSION = 1
 
@@ -84,25 +95,44 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
         ]
         if not cameras:
             return self.async_abort(reason="no_cameras")
+        camera_field = vol.Required(CONF_CAMERA)
+        if self._reconfigure:
+            camera_field = vol.Required(
+                CONF_CAMERA,
+                default=[
+                    entity.entity_id
+                    for key in selected_camera_ids(self._reconfigure.data)
+                    if (entity := registry.async_get(key))
+                ],
+            )
         errors = {}
         if user_input is not None:
             try:
-                sources = camera_sources(self.hass, user_input[CONF_CAMERA])
+                selected = user_input[CONF_CAMERA]
+                if isinstance(selected, str):
+                    selected = [selected]
+                if not selected:
+                    raise DiscoveryError("invalid_camera")
+                sources = [camera_sources(self.hass, key) for key in selected]
             except DiscoveryError as err:
                 errors["base"] = err.code
             else:
-                self._data[CONF_CAMERA_ID] = sources.camera_id
+                self._data[CONF_CAMERA_IDS] = list(
+                    dict.fromkeys(source.camera_id for source in sources)
+                )
+                self._data[CONF_CAMERA_ID] = sources[0].camera_id
                 return await self.async_step_broadlink()
         return self.async_show_form(
             step_id="user",
             errors=errors,
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_CAMERA): selector.EntitySelector(
+                    camera_field: selector.EntitySelector(
                         selector.EntitySelectorConfig(
                             domain="camera",
                             integration="frigate",
                             include_entities=cameras,
+                            multiple=True,
                         )
                     )
                 }
@@ -118,7 +148,8 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = err.code
             else:
                 self._data[CONF_BROADLINK] = user_input[CONF_BROADLINK]
-                pair_id = f"{self._data[CONF_CAMERA_ID]}:{user_input[CONF_BROADLINK]}"
+                camera_key = ",".join(sorted(selected_camera_ids(self._data)))
+                pair_id = f"{camera_key}:{user_input[CONF_BROADLINK]}"
                 await self.async_set_unique_id(pair_id)
                 if any(
                     entry.unique_id == pair_id
@@ -263,17 +294,24 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                sources = camera_sources(self.hass, self._data[CONF_CAMERA_ID])
+                sources = monitor_sources(self.hass, self._data)
                 broadlink_remote(self.hass, self._data[CONF_BROADLINK])
                 if user_input[CONF_FALLBACK] and not (
-                    sources.animal_id and sources.dog_id
+                    all(source.animal_id and source.dog_id for source in sources)
                 ):
                     raise DiscoveryError("missing_fallback")
             except DiscoveryError as err:
                 errors["base"] = err.code
             else:
-                options = {key: user_input[key] for key in DEFAULTS}
-                title = f"Bark alerts: {sources.name}"
+                options = {
+                    key: user_input.get(key, default)
+                    for key, default in DEFAULTS.items()
+                }
+                title = (
+                    f"Bark alerts: {sources[0].name}"
+                    if len(sources) == 1
+                    else "Bark alerts: multi-camera monitor"
+                )
                 if self._reconfigure:
                     # The regular update listener owns reloading the entry.
                     self.hass.config_entries.async_update_entry(
@@ -311,11 +349,9 @@ class BarkAlertsOptionsFlow(OptionsFlow):
         errors = {}
         if user_input is not None:
             try:
-                sources = camera_sources(
-                    self.hass, self.config_entry.data[CONF_CAMERA_ID]
-                )
+                sources = monitor_sources(self.hass, self.config_entry.data)
                 if user_input[CONF_FALLBACK] and not (
-                    sources.animal_id and sources.dog_id
+                    all(source.animal_id and source.dog_id for source in sources)
                 ):
                     raise DiscoveryError("missing_fallback")
             except DiscoveryError as err:

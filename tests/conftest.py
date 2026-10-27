@@ -8,6 +8,7 @@ from types import MappingProxyType, SimpleNamespace
 
 import pytest
 from homeassistant import loader
+from homeassistant.auth import auth_manager_from_config
 from homeassistant.config_entries import ConfigEntries, ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -46,6 +47,7 @@ async def hass(tmp_path):
     dr.async_setup(instance)
     await dr.async_load(instance, load_empty=True)
     await er.async_load(instance, load_empty=True)
+    instance.auth = await auth_manager_from_config(instance, [], [])
     yield instance
     await instance.async_stop(force=True)
 

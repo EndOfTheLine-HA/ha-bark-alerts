@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
+from .const import CONF_CAMERA_ID, CONF_CAMERA_IDS
+
 
 class DiscoveryError(ValueError):
     """A translated, non-sensitive configuration error."""
@@ -25,6 +27,29 @@ class CameraSources:
     bark_id: str
     animal_id: str | None
     dog_id: str | None
+
+
+def selected_camera_ids(data: dict) -> list[str]:
+    """Read multi-camera entries and older single-camera entries."""
+    if CONF_CAMERA_IDS in data:
+        return data[CONF_CAMERA_IDS]
+    return [data[CONF_CAMERA_ID]]
+
+
+def monitor_sources(
+    hass: HomeAssistant, data: dict, *, strict: bool = True
+) -> list[CameraSources]:
+    """Validate every selected camera without borrowing another's sensors."""
+    result = []
+    for key in selected_camera_ids(data):
+        try:
+            result.append(camera_sources(hass, key))
+        except DiscoveryError:
+            if strict:
+                raise
+    if not result:
+        raise DiscoveryError("invalid_camera")
+    return result
 
 
 def camera_sources(hass: HomeAssistant, camera_id: str) -> CameraSources:

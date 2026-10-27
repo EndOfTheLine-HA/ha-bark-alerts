@@ -69,13 +69,14 @@ async def edge(hass, entity):
 
 
 async def test_new_entry_disarmed_and_dry_run(hass, rig, controller):
-    assert controller.armed is False and controller.dry_run is True
+    assert controller.armed is False and controller.dry_run is False
     await edge(hass, rig.selected["bark"])
     assert controller.outcome == "disarmed"
     assert not rig.sends
 
 
 async def test_dry_run_never_sends(hass, rig, controller):
+    controller.dry_run = True
     controller.armed = True
     await edge(hass, rig.selected["bark"])
     assert controller.outcome == "dry_run" and controller.dry_run_count == 1
@@ -155,6 +156,7 @@ async def test_two_repetitions_use_one_request_for_each_command_and_trigger(
 
 
 async def test_two_repetitions_do_not_bypass_dry_run(hass, rig, controller):
+    controller.dry_run = True
     hass.config_entries.async_update_entry(
         controller.entry, options={**DEFAULTS, CONF_REPEATS: 2, CONF_DELAY: 2}
     )
@@ -309,6 +311,7 @@ async def test_inflight_event_is_dropped(hass, rig, controller):
 
 
 async def test_manual_test_is_explicit_even_in_dry_run(hass, rig, controller):
+    controller.dry_run = True
     assert not controller.armed and controller.dry_run
     await controller.async_alert("manual", manual=True)
     assert len(rig.sends) == 1

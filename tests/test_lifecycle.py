@@ -43,7 +43,7 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
     )
     assert result["step_id"] == "user"
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_CAMERA: rig.selected["camera"].entity_id}
+        result["flow_id"], {CONF_CAMERA: [rig.selected["camera"].entity_id]}
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_BROADLINK: rig.device.id}
@@ -57,9 +57,9 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
     controller = entry.runtime_data
-    assert not controller.armed and controller.dry_run
+    assert not controller.armed and not controller.dry_run
     entities = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
-    assert len(entities) == 8
+    assert len(entities) == 10
     assert all(hass.states.get(entity.entity_id) is not None for entity in entities)
     assert not rig.sends and not rig.learns
     # Arming controls are configuration entities, which voice assistants do not
@@ -77,7 +77,7 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
     )
     await hass.async_block_till_done()
     assert entry.runtime_data is not controller
-    assert not entry.runtime_data.armed and entry.runtime_data.dry_run
+    assert not entry.runtime_data.armed and not entry.runtime_data.dry_run
     assert entry.options[CONF_REPEATS] == entry.runtime_data.option(CONF_REPEATS) == 2
     assert entry.options[CONF_DELAY] == entry.runtime_data.option(CONF_DELAY) == 2
 
@@ -87,7 +87,7 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.runtime_data is not reloaded
-    assert not entry.runtime_data.armed and entry.runtime_data.dry_run
+    assert not entry.runtime_data.armed and not entry.runtime_data.dry_run
     assert entry.runtime_data.option(CONF_REPEATS) == 2
     assert entry.runtime_data.option(CONF_DELAY) == 2
     assert not rig.sends and not rig.learns
@@ -97,7 +97,7 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
         DOMAIN, context={"source": "reconfigure", "entry_id": entry.entry_id}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_CAMERA: rig.selected["camera"].entity_id}
+        result["flow_id"], {CONF_CAMERA: [rig.selected["camera"].entity_id]}
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_BROADLINK: rig.device.id}
@@ -110,14 +110,14 @@ async def test_real_flow_setup_platforms_options_and_unload(hass, rig):
     assert result["type"] == "abort" and result["reason"] == "reconfigured"
     await hass.async_block_till_done()
     assert entry.data[CONF_DEVICE] == "replacement"
-    assert not entry.runtime_data.armed and entry.runtime_data.dry_run
+    assert not entry.runtime_data.armed and not entry.runtime_data.dry_run
 
     # A second entry for exactly this camera and transmitter is rejected.
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": "user"}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_CAMERA: rig.selected["camera"].entity_id}
+        result["flow_id"], {CONF_CAMERA: [rig.selected["camera"].entity_id]}
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_BROADLINK: rig.device.id}
@@ -135,7 +135,7 @@ async def test_real_raw_flow_setup_and_reconfigure_to_named(hass, rig):
         DOMAIN, context={"source": "user"}
     )
     for data in (
-        {CONF_CAMERA: rig.selected["camera"].entity_id},
+        {CONF_CAMERA: [rig.selected["camera"].entity_id]},
         {CONF_BROADLINK: rig.device.id},
         {CONF_COMMAND_MODE: "raw"},
     ):
@@ -153,12 +153,12 @@ async def test_real_raw_flow_setup_and_reconfigure_to_named(hass, rig):
     assert entry.state is ConfigEntryState.LOADED
     assert entry.data[CONF_RF_CODE] == "b64:" + packet(0xB1)
     assert CONF_DEVICE not in entry.data and CONF_COMMAND not in entry.data
-    assert not entry.runtime_data.armed and entry.runtime_data.dry_run
+    assert not entry.runtime_data.armed and not entry.runtime_data.dry_run
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": "reconfigure", "entry_id": entry.entry_id}
     )
     for data in (
-        {CONF_CAMERA: rig.selected["camera"].entity_id},
+        {CONF_CAMERA: [rig.selected["camera"].entity_id]},
         {CONF_BROADLINK: rig.device.id},
     ):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
@@ -170,6 +170,6 @@ async def test_real_raw_flow_setup_and_reconfigure_to_named(hass, rig):
     await hass.async_block_till_done()
     assert entry.data[CONF_DEVICE] == "New group"
     assert CONF_RF_CODE not in entry.data
-    assert not entry.runtime_data.armed and entry.runtime_data.dry_run
+    assert not entry.runtime_data.armed and not entry.runtime_data.dry_run
     assert not rig.sends and not rig.learns
     await hass.config_entries.async_unload(entry.entry_id)

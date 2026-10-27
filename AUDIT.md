@@ -1,6 +1,6 @@
 # Source, privacy, and verification audit
 
-Release review: 2026-10-23
+Release review: 2026-10-26
 
 ## Scope and provenance
 
@@ -30,8 +30,12 @@ optional dog gate.
 ## Physical actions and defaults
 
 - Setup does not learn, transmit, or test a code.
-- Every new setup, startup, reload, or reconfigure is disarmed and in dry run.
-- Automatic transmission requires explicit arming and disabling dry run.
+- Every new setup, startup, reload, or reconfigure starts with Armed off and
+  Dry run off. Automatic transmission requires explicit arming. Dry run is
+  an optional testing mode and remains enabled when deliberately selected.
+- Arming with Dry run on, in either switch order, creates a persistent HA
+  notification explaining that automatic beeps are blocked. Disarming,
+  disabling Dry run or unloading the entry dismisses it.
 - The clearly labelled manual test button intentionally bypasses those two
   toggles, but still obeys cooldown and busy-operation rejection.
 - The learning button explicitly delegates receive-only RF learning to
@@ -99,9 +103,38 @@ remain in effect. The HA lifecycle test preserves repetition settings across an
 options reload and explicit entry reload while resetting the enable switches.
 Re-arming does not replay a retained detection from the disarmed interval.
 
-The updated suite has 95 passing tests and does not contact a physical
-transmitter. One native HA HTTP-library deprecation warning appears in the
-lifecycle test; it is not an RF or integration failure.
+The 0.2.0 local suite has 124 passing tests on Linux, Python 3.14.9 and Home
+Assistant 2026.10.4. It does not contact a physical transmitter. Library
+deprecation warnings and aiohttp key warnings do not indicate an RF failure.
+CI separately checks the declared minimum Home Assistant 2026.10.2 version.
+
+## Multi-camera monitoring and optional history
+
+All explicitly selected cameras share one in-flight operation and cooldown per
+entry. Each animal fallback uses only that camera's dog sensor and presence
+history. Disabled or invalid cameras cannot trigger; healthy selected sources
+continue to work. Existing single-camera entries remain readable and retain
+their entity IDs. Combining separate monitors requires explicit reconfiguration
+and disabling the redundant entries; no entry or historical audio is deleted
+or migrated automatically.
+
+The audio archive writes only Bark Alerts' own storage, not Broadlink storage.
+It keeps at most 25 episodes per entry, bounds downloads at 20 MiB and audio
+at 400 KB per clip, and serves audio through an authenticated, non-cacheable
+HA endpoint. The worker extracts local video with FFmpeg without a shell and
+cleans temporary downloads. Capture errors do not retry collar requests.
+Each episode records its triggering camera's registry ID locally; playback
+does not expose credentials or RF packets. Home audio may contain conversations
+and can be included in backups. Capture is opt-in and defaults to off.
+
+Tests cover retention, restart, clear/unload cancellation, malformed indices,
+HTTP authentication, streamed-download limits, per-camera download routing,
+disarmed/dry-run/cooldown outcomes, simultaneous-camera suppression, same-camera
+dog gating, and real HA notification dispatch/removal. RF services and recording
+responses are synthetic. The Frigate recording adapter reuses its runtime
+client for authentication and fails unavailable on incompatible interfaces.
+Actual new-build capture, decoding, and audible reception remain hardware-stage
+checks; previous versions' household observations are not new-build validation.
 
 ## Hardware and publication boundary
 

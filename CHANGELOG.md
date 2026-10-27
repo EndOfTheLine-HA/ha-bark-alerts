@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0
+
+- Select multiple Frigate cameras for one monitor, Armed switch and cooldown.
+  Dog-gated animal fallback remains scoped to the triggering camera.
+- Default Dry run to off while keeping Armed off on startup and reload.
+  Arming with Dry run enabled, in either switch order, creates a persistent
+  notification explaining that automatic beeps are blocked. Turning Dry run
+  off, disarming or unloading clears it; arming never silently ends a test.
+- Add opt-in local history for the latest 25 bark episodes across selected
+  cameras, authenticated playback, capture status and an explicit clear action.
+  Recordings come from the triggering camera even while disarmed or in cooldown.
+- Preserve existing entries and entity IDs. Reconfigure one entry and disable
+  redundant entries to consolidate older per-camera monitors.
+- Retain the v0.1.4 removal of the Broadlink private-storage reader and typed
+  command names. Configuration switches remain excluded from voice assistants
+  by default. No automatic transmissions occur during setup or migration.
+
 ## 0.1.4
 
 - Remove the Broadlink private-storage reader. Bark Alerts no longer opens or

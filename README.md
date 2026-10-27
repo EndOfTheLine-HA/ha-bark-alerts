@@ -4,9 +4,9 @@
 
 A Home Assistant integration that turns **Frigate dog-bark detections into
 automatic beep-only RF commands for a compatible dog collar**, sent through
-Broadlink. Choose a Frigate camera, choose your Broadlink device, and configure
-your own collar's learned beep command. No YAML or manual entity-ID mapping is
-needed.
+Broadlink. Choose one or more Frigate cameras, choose your Broadlink device,
+and configure your own collar's learned beep command. No YAML or manual
+entity-ID mapping is needed.
 
 > [!WARNING]
 > **An incorrectly learned or selected RF command could activate SHOCK instead
@@ -76,8 +76,9 @@ Optional animal-sound fallback additionally requires enabled `animal` audio and
 
 ## Install with HACS
 
-Version **0.1.4** uses typed learned-device and command names and separates
-raw-code setup from named-command setup. It includes the 0.1.1 `B1` packet fix.
+Version **0.2.0** adds multi-camera monitoring, explicit dry-run notifications
+and optional bark audio history. It retains typed command names and does not
+read Broadlink's private storage. It includes the 0.1.1 `B1` packet fix.
 See [CHANGELOG.md](CHANGELOG.md). After updating, restart Home Assistant and
 reopen setup; an already-open flow uses old code.
 
@@ -85,7 +86,7 @@ reopen setup; an already-open flow uses old code.
    repositories, category **Integration**, and download **Bark Alerts**.
 2. Restart Home Assistant.
 3. Add **Bark Alerts** through **Settings → Devices & services**.
-4. Choose your **Frigate camera**, then your **Broadlink device**.
+4. Choose your **Frigate cameras**, then your **Broadlink device**.
 5. Choose a command source:
    - **Named command:** type the device/group name and beep command name exactly
      as they are saved in Home Assistant's Broadlink integration. For a new
@@ -107,16 +108,24 @@ a command is RF-compatible or beep-only; verify its effect before confirming it.
 
 ## First use and controls
 
-New entries start with **Armed off** and **Dry run on**. Every HA restart, entry
-reload, options change, or reconfiguration returns to those safe defaults. You
-must re-arm explicitly; there is no automatic startup beep.
+**Armed is the main on/off control.** Select one or more Frigate cameras in
+setup or Reconfigure. Any selected camera can trigger the monitor; all share
+one cooldown and one in-flight command limit. New cameras are never opted in
+automatically. Sources ready means at least one selected camera and the remote
+are available; an unavailable camera cannot trigger, and healthy cameras keep
+working.
 
-**After restarting or updating:** check **Sources ready**, explicitly turn
-**Armed on**, and leave **Dry run on** while checking detection. Only turn
-**Dry run off** when ready for automatic transmissions. Saved repetition and
-cooldown options survive a restart; the live enable switches and counters do not.
-Sources ready does not mean the entry is armed, and arming does not replay
-detections that occurred while disarmed.
+New entries start with **Armed off** and **Dry run off**. Every restart, reload,
+options change or reconfiguration returns both switches to off. Arming is always
+explicit and never replays old detections or sends a startup beep. With Dry run
+off, arming permits automatic beep requests immediately on the next valid event.
+
+**Dry run is optional testing mode.** Turn it on before arming to observe
+detections without automatic RF transmissions. When Armed and Dry run are both
+on, a persistent Home Assistant notification explains that automatic beeps are
+blocked. This works in either switch order. Disarming, turning Dry run off, or
+unloading the entry dismisses the notification. Dry run is never silently
+disabled when arming. The explicit Test beep button still sends RF in dry run.
 
 1. For a new named command, press **Learn beep (receive RF)** and follow the
    native Broadlink notifications. Press only the original remote's beep button.
@@ -129,14 +138,14 @@ detections that occurred while disarmed.
 3. With the collar **off the animal**, use **Test beep (sends RF)** only when
    ready for a physical test. This explicitly sends even while disarmed or in
    dry-run mode. It still respects cooldown and cannot queue a later test.
-4. Turn **Armed on** while leaving **Dry run on** to observe detections without
+4. Turn **Dry run on**, then **Armed on** to observe detections without
    sending commands. The outcome sensor records what would happen.
 5. Only after validating detection and the command, turn **Dry run off** to
    permit automatic beep requests. Disarm at any time to stop new requests.
 
 Detection rules:
 
-- Direct bark events use the selected camera's bark sensor.
+- Direct bark events use each selected camera's own bark sensor.
 - Optional animal fallback requires a fresh dog occupancy transition from that
   camera in this HA session. A continuously present, freshly observed dog also
   qualifies. A dog seen by another camera never authorizes the fallback.
@@ -154,7 +163,7 @@ are session-only. `bark_alerts_alert` events contain only the entry ID, source
 (`bark`, `animal`, or `manual`), and outcome, not command payloads.
 
 Use **Configure** for cooldown/fallback/repetition settings. Use **Reconfigure**
-to choose another camera, Broadlink device, or command. Multiple entries can
+to change the selected cameras, Broadlink device, or command. Multiple entries can
 target one transmitter; cooldown is per entry, not global across entries or
 other automations. Do not pair multiple noisy sources to one collar without
 reviewing their combined behavior.
@@ -167,7 +176,7 @@ If a known beep command is received inconsistently, an optional setting is
 This requests two transmissions from Broadlink, so two audible beeps may be
 expected. It is not a universal compatibility fix or a delivery guarantee.
 Change one setting at a time and verify the effect with the collar **off the
-animal**. Changing options reloads the entry and returns it to disarmed/dry-run;
+animal**. Changing options reloads the entry and returns Armed and Dry run to off;
 check the saved values before explicitly re-enabling automatic operation.
 
 One alert increments `command_requests` once, even when that request includes
@@ -215,6 +224,48 @@ When an expected beep is missing:
   Home Assistant/Broadlink logs and service traces may still contain them.
 - Disable any existing bark-to-collar automation before arming this integration
   against the same equipment. No automatic migration or live deployment occurs.
+
+## Bark audio history
+
+Enable **Save the latest 25 bark audio clips** in Configure. It is off by
+default. Listen in **Media > Bark Alerts history > your monitor**. Each bark
+episode shows its timestamp, outcome and capture status. Saved bark clips
+reports the playable count; Clear bark audio history deletes this monitor's
+recordings and cancels pending captures without sending RF.
+
+- Keeps the latest 25 bark episodes across all selected cameras, including
+  while disarmed, in dry run, or in cooldown. Failed captures count toward the
+  25-episode limit. It does not record manual tests or animal-sound fallback.
+- Fetches about five seconds before and five seconds after the bark from the
+  camera that triggered it, using existing Frigate recordings with audio.
+  Segment alignment can affect the boundaries. Captures are available after
+  roughly 20 seconds plus download/conversion time. FFmpeg is required.
+- Reports missing recordings, audio, authentication or conversion as unavailable;
+  these failures do not interrupt, retry, or queue collar commands.
+- Stores mono 16 kHz WAV audio in the integration's own
+  `/config/.storage/bark_alerts_history/<entry_id>/` folder, outside public `www`.
+  It never reads Broadlink's private storage. Audio survives restarts; interrupted
+  captures are marked and are not retried. Turning capture off keeps old clips.
+- Playback requires HA authentication or a temporary signed media URL. Each
+  clip is at most 400 KB (about 10 MB per monitor); temporary video downloads
+  are capped at 20 MiB and deleted after processing. Recordings may contain
+  private household conversations and may be included in backups. Do not publish
+  recordings or share their playback URLs.
+
+Frigate connection settings and authentication are reused from the triggering
+camera's integration. This compatibility adapter depends on Frigate's runtime
+client interface and reports unavailable capture if that interface changes.
+It does not change Frigate recording or retention settings.
+
+## Upgrading from separate camera monitors
+
+Existing entries and entity IDs are preserved and start disarmed after the
+upgrade. To combine monitors for one collar, disarm the old entries, use
+Reconfigure on one entry to select all desired cameras, and disable the other
+entries in HA. Their stored histories remain separate; no recordings or entries
+are automatically deleted or combined. One multi-camera monitor provides the
+shared cooldown. Separate entries and external automations have independent
+cooldowns, so avoid arming duplicates that target the same collar.
 
 ## Development and verification
 
