@@ -103,7 +103,7 @@ remain in effect. The HA lifecycle test preserves repetition settings across an
 options reload and explicit entry reload while resetting the enable switches.
 Re-arming does not replay a retained detection from the disarmed interval.
 
-The 0.2.0 local suite has 124 passing tests on Linux, Python 3.14.9 and Home
+The 0.2.0 local suite has 127 passing tests on Linux, Python 3.14.9 and Home
 Assistant 2026.10.4. It does not contact a physical transmitter. Library
 deprecation warnings and aiohttp key warnings do not indicate an RF failure.
 CI separately checks the declared minimum Home Assistant 2026.10.2 version.
@@ -133,8 +133,10 @@ disarmed/dry-run/cooldown outcomes, simultaneous-camera suppression, same-camera
 dog gating, and real HA notification dispatch/removal. RF services and recording
 responses are synthetic. The Frigate recording adapter reuses its runtime
 client for authentication and fails unavailable on incompatible interfaces.
-Actual new-build capture, decoding, and audible reception remain hardware-stage
-checks; previous versions' household observations are not new-build validation.
+Real FFmpeg tests decode generated audio into bounded mono 16 kHz WAV and
+reject video with no audio. Actual new-build Frigate capture and audible
+reception remain hardware-stage checks; previous versions' household
+observations are not new-build validation.
 
 ## Hardware and publication boundary
 

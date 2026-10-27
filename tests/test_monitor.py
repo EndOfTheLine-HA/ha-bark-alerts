@@ -211,3 +211,23 @@ async def test_notification_reaches_ha_and_is_removed_when_disarmed(hass, contro
         assert len(updates) == 2
     finally:
         unsubscribe()
+
+
+async def test_dog_seen_while_camera_disabled_does_not_authorize_fallback(
+    hass, rig, controller
+):
+    include_both(hass, rig, controller)
+    hass.config_entries.async_update_entry(
+        controller.entry, options={**controller.entry.options, CONF_FALLBACK: True}
+    )
+    controller._bind_sources()
+    controller.armed = True
+    rig.registry.async_update_entity(
+        rig.other["camera"].entity_id, disabled_by=er.RegistryEntryDisabler.USER
+    )
+    await hass.async_block_till_done()
+    await edge(hass, rig.other["dog"])
+    rig.registry.async_update_entity(rig.other["camera"].entity_id, disabled_by=None)
+    await hass.async_block_till_done()
+    await edge(hass, rig.other["animal"])
+    assert not rig.sends and controller.outcome == "dog_not_recent"

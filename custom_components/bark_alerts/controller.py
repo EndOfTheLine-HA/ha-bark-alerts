@@ -211,7 +211,9 @@ class BarkAlertsController:
         old, new = event.data.get("old_state"), event.data.get("new_state")
         current_id = event.data["entity_id"]
         for sources in self.all_sources.values():
-            if current_id == entity_id(self.hass, sources.dog_id):
+            if sources.camera_id in self._valid_cameras and current_id == entity_id(
+                self.hass, sources.dog_id
+            ):
                 if new is None or new.state not in (STATE_ON, STATE_OFF):
                     self._last_dog.pop(sources.camera_id, None)
                 elif (

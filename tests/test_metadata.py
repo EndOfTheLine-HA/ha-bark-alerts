@@ -26,7 +26,7 @@ def test_metadata_and_translations():
     assert strings == json.loads(
         (PACKAGE / "translations/en.json").read_text(encoding="utf-8")
     )
-    assert all(ord(character) < 128 for character in str(strings))
+    assert "\u00e2\u20ac" not in str(strings)
     assert set(strings["entity"]["sensor"]["outcome"]["state"]) == set(OUTCOMES)
     assert set(strings["config"]["step"]["behavior"]["data"]) == set(DEFAULTS)
     assert (

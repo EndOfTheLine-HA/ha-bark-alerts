@@ -272,7 +272,7 @@ cooldowns, so avoid arming duplicates that target the same collar.
 ```sh
 uvx ruff check .
 uvx ruff format --check .
-uv run --python 3.14 --with homeassistant==2026.10.2 --with pytest --with pytest-asyncio python -m pytest -q
+uv run --python 3.14 --with homeassistant==2026.10.2 --with pytest --with pytest-asyncio --with imageio-ffmpeg python -m pytest -q
 ```
 
 Tests use isolated Home Assistant registries/state events and mocked remote
