@@ -4,11 +4,16 @@ Release review: 2026-10-26
 
 ## Scope and provenance
 
-This is a new Home Assistant helper integration, not a copy of a private HA
+This is a Home Assistant service integration, not a copy of a private HA
 configuration or a fork of Frigate/Broadlink. The starting behavior was reviewed
 read-only: direct bark detection and an optional same-camera, recent-dog-gated
 animal-sound fallback. The implementation is generic and uses existing HA
 entities and native remote actions.
+
+Version 0.2.1 changes only the integration classification and release metadata.
+The domain, config-entry schema and entity unique IDs are unchanged. Existing
+monitors are displayed on the Integrations page after restart. Configuration
+categories on the RF controls remain unchanged.
 
 Reviewed interfaces:
 

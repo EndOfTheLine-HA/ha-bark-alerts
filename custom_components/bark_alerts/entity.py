@@ -1,4 +1,4 @@
-"""Common local helper device and push updates."""
+"""Common local monitor device and push updates."""
 
 from __future__ import annotations
 

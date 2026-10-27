@@ -76,6 +76,11 @@ Optional animal-sound fallback additionally requires enabled `animal` audio and
 
 ## Install with HACS
 
+Version **0.2.1** lists Bark Alerts under **Settings > Devices & services >
+Integrations**. Existing monitors and entity IDs are preserved when upgrading
+from the helper classification; no removal or re-creation is needed. Restart
+Home Assistant after updating. Armed and Dry run remain configuration controls.
+
 Version **0.2.0** adds multi-camera monitoring, explicit dry-run notifications
 and optional bark audio history. It retains typed command names and does not
 read Broadlink's private storage. It includes the 0.1.1 `B1` packet fix.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- Classify Bark Alerts as a service integration so existing monitors appear
+  under Settings > Devices & services > Integrations instead of Helpers.
+- Preserve all existing monitors, entity IDs, commands, camera selections and
+  saved audio. No removal or re-creation is needed; restart HA after updating.
+- Retain the configuration category on Armed and Dry run so this navigation
+  change does not expose the controls to voice assistants by default.
+
 ## 0.2.0
 
 - Select multiple Frigate cameras for one monitor, Armed switch and cooldown.
