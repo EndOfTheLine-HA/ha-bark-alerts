@@ -71,8 +71,9 @@ alone does not establish RF compatibility.
   RF band, encoding, and receiver compatibility still matter; not every collar
   can be controlled by Broadlink.
 
-Optional animal-sound fallback additionally requires enabled `animal` audio and
-`dog` occupancy sensors from **the same camera**.
+Optional animal-sound fallback requires an enabled `animal` audio sensor.
+When **Require a dog seen on the same camera for animal sounds** is on, it also
+requires that camera's enabled `dog` occupancy sensor.
 
 ## Install with HACS
 
@@ -151,9 +152,16 @@ disabled when arming. The explicit Test beep button still sends RF in dry run.
 Detection rules:
 
 - Direct bark events use each selected camera's own bark sensor.
-- Optional animal fallback requires a fresh dog occupancy transition from that
-  camera in this HA session. A continuously present, freshly observed dog also
-  qualifies. A dog seen by another camera never authorizes the fallback.
+- **Use animal-sound fallback** enables an additional animal-audio trigger.
+  **Require a dog seen on the same camera for animal sounds** independently
+  controls its visual check. Turn the requirement **off** when the camera hears
+  the dog but cannot see it. No dog-occupancy sensor is then required, and other
+  animal sounds can also trigger a beep. Fallback remains off by default; its
+  dog requirement defaults on and stays on for existing entries until changed.
+- With the dog requirement on, fallback needs a fresh dog occupancy transition
+  from that camera in this HA session. A continuously present, freshly observed
+  dog also qualifies. The recent-dog window is ignored with the requirement off.
+  **Direct bark detections never require a dog to be seen**, in either mode.
 - Only `off` → `on` sensor transitions count. Initial states, retained `on`,
   recovery from `unknown`/`unavailable`, and attribute-only updates are ignored.
   A sensor must return to `off` before its next event can trigger.
@@ -167,7 +175,8 @@ Last command request, and the explicit test/learning buttons. Outcome counters
 are session-only. `bark_alerts_alert` events contain only the entry ID, source
 (`bark`, `animal`, or `manual`), and outcome, not command payloads.
 
-Use **Configure** for cooldown/fallback/repetition settings. Use **Reconfigure**
+Use **Configure** for cooldown/fallback/repetition settings, including the
+independent visual-dog requirement for animal sounds. Use **Reconfigure**
 to change the selected cameras, Broadlink device, or command. Multiple entries can
 target one transmitter; cooldown is per entry, not global across entries or
 other automations. Do not pair multiple noisy sources to one collar without
@@ -196,8 +205,8 @@ When an expected beep is missing:
    the previous processed event; it can still say `disarmed` after you re-arm.
 2. Check the selected camera's bark/animal source history and **Last detection**.
    A sound that remains `on` is not a new event: it must return to `off` and then
-   turn `on` again. An animal-sound fallback also needs that camera's recently
-   observed dog occupancy in the current session.
+   turn `on` again. Animal-sound fallback needs recently observed dog occupancy
+   only when its separate dog requirement is enabled.
 3. Check the recorded outcome. `dry_run`, `dog_not_recent`, `cooldown`, `busy`,
    `source_unavailable`, and `remote_unavailable` identify different gates;
    they are not confirmations of a transmitted command.

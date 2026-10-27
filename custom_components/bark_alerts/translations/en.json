@@ -48,14 +48,15 @@
       },
       "behavior": {
         "title": "Alert settings",
-        "description": "One monitor and cooldown cover all selected cameras. Fallback requires recent dog detection from the camera that heard the sound. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio. When enabled, the next screen configures a separate Frigate HTTP API connection for history.",
+        "description": "One monitor and cooldown cover all selected cameras. Direct bark detections never require a visible dog. For animal-sound fallback, choose whether a recent dog must be seen on the same camera. Turn that requirement off for dogs outside the view; other animal sounds can then also trigger beeps. The recent-dog window applies only when the requirement is on. Existing setups keep the dog requirement until you change it. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio. When enabled, the next screen configures a separate Frigate HTTP API connection for history.",
         "data": {
           "cooldown": "Cooldown (seconds)",
-          "animal_fallback": "Use dog-gated animal-sound fallback",
+          "animal_fallback": "Use animal-sound fallback (in addition to bark)",
           "dog_window": "Recent-dog window (seconds)",
           "repeats": "Beep command repetitions",
           "repeat_delay": "Delay between repetitions (seconds)",
-          "save_bark_history": "Save the latest 25 bark audio clips"
+          "save_bark_history": "Save the latest 25 bark audio clips",
+          "require_dog_for_animal_sound": "Require a dog seen on the same camera for animal sounds"
         }
       },
       "history": {
@@ -76,7 +77,7 @@
       "missing_bark": "Enable audio detection and the bark label for this camera in Frigate, then reload Frigate's Home Assistant integration and enable its bark sensor.",
       "invalid_broadlink": "Choose a Broadlink device with exactly one enabled remote entity.",
       "rf_not_supported": "This device has no Broadlink RF transmitter. IR-only mini models cannot operate an RF collar.",
-      "missing_fallback": "Fallback requires enabled animal-sound and dog-occupancy sensors on this same camera. Configure them in Frigate first, or disable fallback.",
+      "missing_fallback": "Animal-sound fallback requires an enabled animal-sound sensor on every selected camera. When the dog requirement is on, each also needs a dog-occupancy sensor. Configure these in Frigate, turn the dog requirement off, or disable fallback.",
       "beep_confirmation_required": "Confirm that this is a beep-only command. Do not configure vibration or shock.",
       "invalid_command": "Enter both the learned device/group name and the single beep command name (1\u2013100 characters).",
       "invalid_rf_code": "Enter a valid Broadlink RF packet in base64, optionally prefixed with b64:. IR packets are not accepted.",
@@ -93,14 +94,15 @@
     "step": {
       "init": {
         "title": "Alert settings",
-        "description": "One monitor and cooldown cover all selected cameras. Fallback requires recent dog detection from the camera that heard the sound. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio. When enabled, the next screen configures a separate Frigate HTTP API connection for history.",
+        "description": "One monitor and cooldown cover all selected cameras. Direct bark detections never require a visible dog. For animal-sound fallback, choose whether a recent dog must be seen on the same camera. Turn that requirement off for dogs outside the view; other animal sounds can then also trigger beeps. The recent-dog window applies only when the requirement is on. Existing setups keep the dog requirement until you change it. Restart or reload resets Armed and Dry run to off. To test without beeps, turn Dry run on before arming; a persistent notification explains that beeps are blocked. Optional history saves the latest 25 bark episodes across selected cameras, including while disarmed. Requires Frigate recordings with audio. Listen in Media > Bark Alerts history. Recordings may contain private household audio. When enabled, the next screen configures a separate Frigate HTTP API connection for history.",
         "data": {
           "cooldown": "Cooldown (seconds)",
-          "animal_fallback": "Use dog-gated animal-sound fallback",
+          "animal_fallback": "Use animal-sound fallback (in addition to bark)",
           "dog_window": "Recent-dog window (seconds)",
           "repeats": "Beep command repetitions",
           "repeat_delay": "Delay between repetitions (seconds)",
-          "save_bark_history": "Save the latest 25 bark audio clips"
+          "save_bark_history": "Save the latest 25 bark audio clips",
+          "require_dog_for_animal_sound": "Require a dog seen on the same camera for animal sounds"
         }
       },
       "history": {
@@ -120,7 +122,7 @@
       "missing_bark": "Enable audio detection and the bark label for this camera in Frigate, then reload Frigate's Home Assistant integration and enable its bark sensor.",
       "invalid_broadlink": "Choose a Broadlink device with exactly one enabled remote entity.",
       "rf_not_supported": "This device has no Broadlink RF transmitter. IR-only mini models cannot operate an RF collar.",
-      "missing_fallback": "Fallback requires enabled animal-sound and dog-occupancy sensors on this same camera. Configure them in Frigate first, or disable fallback.",
+      "missing_fallback": "Animal-sound fallback requires an enabled animal-sound sensor on every selected camera. When the dog requirement is on, each also needs a dog-occupancy sensor. Configure these in Frigate, turn the dog requirement off, or disable fallback.",
       "beep_confirmation_required": "Confirm that this is a beep-only command. Do not configure vibration or shock.",
       "invalid_command": "Enter both the learned device/group name and the single beep command name (1\u2013100 characters).",
       "invalid_rf_code": "Enter a valid Broadlink RF packet in base64, optionally prefixed with b64:. IR packets are not accepted.",
@@ -207,7 +209,7 @@
       "message": "This device has no Broadlink RF transmitter. IR-only mini models cannot operate an RF collar."
     },
     "missing_fallback": {
-      "message": "Fallback requires enabled animal-sound and dog-occupancy sensors on this same camera. Configure them in Frigate first, or disable fallback."
+      "message": "Animal-sound fallback requires an enabled animal-sound sensor on every selected camera. When the dog requirement is on, each also needs a dog-occupancy sensor. Configure these in Frigate, turn the dog requirement off, or disable fallback."
     },
     "beep_confirmation_required": {
       "message": "Confirm that this is a beep-only command. Do not configure vibration or shock."

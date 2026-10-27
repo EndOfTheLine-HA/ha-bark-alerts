@@ -320,3 +320,35 @@ async def test_history_options_require_explicit_connection(hass, rig):
     assert entry.options["history_connection"]["verify_ssl"] is True
     assert not rig.sends and not rig.learns
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_audio_only_fallback_setup_and_options_without_dog_sensor(hass, rig):
+    from custom_components.bark_alerts.const import CONF_REQUIRE_DOG
+
+    rig.registry.async_remove(rig.selected["dog"].entity_id)
+    hass.config.components.add("broadlink")
+    assert await async_setup_component(hass, "remote", {})
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    for data in (
+        {CONF_CAMERA: [rig.selected["camera"].entity_id]},
+        {CONF_BROADLINK: rig.device.id},
+    ):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
+    result = await configure_named(hass, result, "Example collar")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_FALLBACK: True, CONF_REQUIRE_DOG: False}
+    )
+    entry = result["result"]
+    await hass.async_block_till_done()
+    assert entry.runtime_data.ready
+    assert entry.options[CONF_REQUIRE_DOG] is False
+    options = await hass.config_entries.options.async_init(entry.entry_id)
+    options = await hass.config_entries.options.async_configure(
+        options["flow_id"], {CONF_FALLBACK: True, CONF_REQUIRE_DOG: True}
+    )
+    assert options["errors"] == {"base": "missing_fallback"}
+    assert entry.options[CONF_REQUIRE_DOG] is False
+    assert not rig.sends and not rig.learns
+    await hass.config_entries.async_unload(entry.entry_id)

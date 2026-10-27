@@ -31,6 +31,7 @@ from .const import (
     CONF_FALLBACK,
     CONF_HISTORY,
     CONF_REPEATS,
+    CONF_REQUIRE_DOG,
     CONF_RF_CODE,
     DEFAULTS,
     DOMAIN,
@@ -42,6 +43,7 @@ from .discovery import (
     broadlink_remote,
     camera_sources,
     entity_id,
+    fallback_sources_available,
     selected_camera_ids,
 )
 
@@ -158,7 +160,9 @@ class BarkAlertsController:
             if previous and previous.dog_id != source.dog_id:
                 self._last_dog.pop(camera_id, None)
             self.all_sources[camera_id] = source
-            if not self.option(CONF_FALLBACK) or (source.animal_id and source.dog_id):
+            if not self.option(CONF_FALLBACK) or fallback_sources_available(
+                [source], self.option(CONF_REQUIRE_DOG)
+            ):
                 self._valid_cameras.add(camera_id)
         try:
             self.remote_id = broadlink_remote(
@@ -344,7 +348,11 @@ class BarkAlertsController:
             ):
                 self._record("source_unavailable", source)
                 return
-            if source == "animal" and not self._dog_recent(sources):
+            if (
+                source == "animal"
+                and self.option(CONF_REQUIRE_DOG)
+                and not self._dog_recent(sources)
+            ):
                 self._record("dog_not_recent", source)
                 return
         if self._lock.locked():

@@ -6,9 +6,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import CONF_BROADLINK, CONF_FALLBACK, DEFAULTS, PLATFORMS
+from .const import CONF_BROADLINK, CONF_FALLBACK, CONF_REQUIRE_DOG, DEFAULTS, PLATFORMS
 from .controller import BarkAlertsController
-from .discovery import DiscoveryError, broadlink_remote, monitor_sources
+from .discovery import (
+    DiscoveryError,
+    broadlink_remote,
+    fallback_sources_available,
+    monitor_sources,
+)
 from .history import BarkHistory
 from .media_source import register_history_view
 
@@ -20,8 +25,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: BarkAlertsConfigEntry) -
     try:
         sources = monitor_sources(hass, entry.data, strict=False)
         remote = broadlink_remote(hass, entry.data[CONF_BROADLINK])
-        if entry.options.get(CONF_FALLBACK, DEFAULTS[CONF_FALLBACK]) and not (
-            all(source.animal_id and source.dog_id for source in sources)
+        if entry.options.get(
+            CONF_FALLBACK, DEFAULTS[CONF_FALLBACK]
+        ) and not fallback_sources_available(
+            sources, entry.options.get(CONF_REQUIRE_DOG, DEFAULTS[CONF_REQUIRE_DOG])
         ):
             raise DiscoveryError("missing_fallback")
     except DiscoveryError as err:

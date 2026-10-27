@@ -29,6 +29,13 @@ class CameraSources:
     dog_id: str | None
 
 
+def fallback_sources_available(sources: list[CameraSources], require_dog: bool) -> bool:
+    """Animal fallback always needs audio; visual dog sensing is optional."""
+    return all(
+        source.animal_id and (not require_dog or source.dog_id) for source in sources
+    )
+
+
 def selected_camera_ids(data: dict) -> list[str]:
     """Read multi-camera entries and older single-camera entries."""
     if CONF_CAMERA_IDS in data:

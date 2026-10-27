@@ -10,6 +10,15 @@ and unconfirmed/invalid saved commands cannot use that choice. The existing
 transmitter is preselected. Lifecycle tests verify raw and named commands,
 settings and entity IDs survive camera changes with no RF or learning call.
 
+Version 0.2.4 adds an explicit visual-dog requirement option for animal-sound
+fallback. Its default is true, preserving existing entries. When false, animal
+audio can trigger without a dog sensor or visual presence; other animal sounds
+may then trigger. Direct bark events never use the dog gate. Setup, options,
+reconfiguration and runtime rebinding use the same conditional requirements.
+Tests cover both modes, missing audio/dog sensors, legacy options and continued
+arming, dry-run and cooldown enforcement. No household configuration is changed
+by publishing the option.
+
 ## Scope and provenance
 
 This is a Home Assistant service integration, not a copy of a private HA

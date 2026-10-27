@@ -31,6 +31,7 @@ from .const import (
     CONF_HISTORY,
     CONF_HISTORY_CONNECTION,
     CONF_REPEATS,
+    CONF_REQUIRE_DOG,
     CONF_RF_CODE,
     DEFAULTS,
     DOMAIN,
@@ -42,6 +43,7 @@ from .discovery import (
     DiscoveryError,
     broadlink_remote,
     camera_sources,
+    fallback_sources_available,
     monitor_sources,
     selected_camera_ids,
 )
@@ -71,6 +73,12 @@ def behavior_schema(defaults: dict[str, Any]) -> vol.Schema:
     fields[vol.Required(CONF_FALLBACK, default=defaults.get(CONF_FALLBACK, False))] = (
         selector.BooleanSelector()
     )
+    fields[
+        vol.Required(
+            CONF_REQUIRE_DOG,
+            default=defaults.get(CONF_REQUIRE_DOG, DEFAULTS[CONF_REQUIRE_DOG]),
+        )
+    ] = selector.BooleanSelector()
     fields[vol.Required(CONF_HISTORY, default=defaults.get(CONF_HISTORY, False))] = (
         selector.BooleanSelector()
     )
@@ -339,8 +347,9 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
             try:
                 sources = monitor_sources(self.hass, self._data)
                 broadlink_remote(self.hass, self._data[CONF_BROADLINK])
-                if user_input[CONF_FALLBACK] and not (
-                    all(source.animal_id and source.dog_id for source in sources)
+                if user_input[CONF_FALLBACK] and not fallback_sources_available(
+                    sources,
+                    user_input.get(CONF_REQUIRE_DOG, DEFAULTS[CONF_REQUIRE_DOG]),
                 ):
                     raise DiscoveryError("missing_fallback")
             except DiscoveryError as err:
@@ -415,8 +424,9 @@ class BarkAlertsOptionsFlow(OptionsFlow):
         if user_input is not None:
             try:
                 sources = monitor_sources(self.hass, self.config_entry.data)
-                if user_input[CONF_FALLBACK] and not (
-                    all(source.animal_id and source.dog_id for source in sources)
+                if user_input[CONF_FALLBACK] and not fallback_sources_available(
+                    sources,
+                    user_input.get(CONF_REQUIRE_DOG, DEFAULTS[CONF_REQUIRE_DOG]),
                 ):
                     raise DiscoveryError("missing_fallback")
             except DiscoveryError as err:

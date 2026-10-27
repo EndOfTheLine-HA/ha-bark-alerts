@@ -244,3 +244,29 @@ async def test_changed_transmitter_cannot_reuse_saved_command(hass, rig):
     assert result["errors"] == {"base": "invalid_command_mode"}
     assert "keep" not in field(result, CONF_COMMAND_MODE).config["options"]
     assert CONF_RF_CODE not in wizard._data
+
+
+@pytest.mark.parametrize(
+    "missing,require_dog,accepted",
+    [("dog", False, True), ("dog", True, False), ("animal", False, False)],
+)
+async def test_fallback_sensor_requirements_follow_visual_option(
+    hass, rig, missing, require_dog, accepted
+):
+    from custom_components.bark_alerts.const import CONF_REQUIRE_DOG
+
+    wizard, _ = await command_step(hass, rig)
+    await wizard.async_step_learned_device({CONF_DEVICE: "example"})
+    await wizard.async_step_learned_command(
+        {CONF_COMMAND: "beep", CONF_BEEP_ONLY: True}
+    )
+    rig.registry.async_remove(rig.selected[missing].entity_id)
+    result = await wizard.async_step_behavior(
+        {**DEFAULTS, CONF_FALLBACK: True, CONF_REQUIRE_DOG: require_dog}
+    )
+    if accepted:
+        assert result["type"] == "create_entry"
+        assert result["options"][CONF_REQUIRE_DOG] is False
+    else:
+        assert result["errors"] == {"base": "missing_fallback"}
+    assert not rig.sends and not rig.learns

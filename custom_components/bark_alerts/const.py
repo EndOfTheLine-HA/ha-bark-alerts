@@ -3,7 +3,7 @@
 from homeassistant.const import Platform
 
 DOMAIN = "bark_alerts"
-VERSION = "0.2.3"
+VERSION = "0.2.4"
 PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR, Platform.SWITCH]
 
 CONF_CAMERA = "camera"
@@ -18,6 +18,7 @@ CONF_BEEP_ONLY = "beep_only_confirmed"
 CONF_COOLDOWN = "cooldown"
 CONF_FALLBACK = "animal_fallback"
 CONF_DOG_WINDOW = "dog_window"
+CONF_REQUIRE_DOG = "require_dog_for_animal_sound"
 CONF_REPEATS = "repeats"
 CONF_DELAY = "repeat_delay"
 CONF_HISTORY = "save_bark_history"
@@ -31,6 +32,7 @@ DEFAULTS = {
     CONF_COOLDOWN: 30,
     CONF_FALLBACK: False,
     CONF_DOG_WINDOW: 300,
+    CONF_REQUIRE_DOG: True,
     CONF_REPEATS: 1,
     CONF_DELAY: 1,
 }

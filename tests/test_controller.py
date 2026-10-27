@@ -401,3 +401,76 @@ async def test_stopping_cancels_pending_operation(hass, rig, controller):
         await task
     release.set()
     assert not controller.armed
+
+
+@pytest.mark.parametrize("source", ["bark", "animal"])
+@pytest.mark.parametrize("require_dog", [True, False])
+async def test_visual_requirement_is_independent_of_bark_detection(
+    hass, rig, controller, source, require_dog
+):
+    from custom_components.bark_alerts.const import CONF_REQUIRE_DOG
+
+    hass.config_entries.async_update_entry(
+        controller.entry,
+        options={**DEFAULTS, CONF_FALLBACK: True, CONF_REQUIRE_DOG: require_dog},
+    )
+    controller._bind_sources()
+    controller.armed = True
+    await edge(hass, rig.selected[source])
+    should_send = source == "bark" or not require_dog
+    assert len(rig.sends) == int(should_send)
+    assert controller.outcome == (
+        "command_requested" if should_send else "dog_not_recent"
+    )
+
+
+@pytest.mark.parametrize("gate", ["disarmed", "dry_run", "cooldown"])
+async def test_audio_only_fallback_still_respects_monitor_controls(
+    hass, rig, controller, gate
+):
+    from custom_components.bark_alerts.const import CONF_REQUIRE_DOG
+
+    hass.config_entries.async_update_entry(
+        controller.entry,
+        options={**DEFAULTS, CONF_FALLBACK: True, CONF_REQUIRE_DOG: False},
+    )
+    rig.registry.async_remove(rig.selected["dog"].entity_id)
+    await hass.async_block_till_done()
+    controller._bind_sources()
+    assert controller.ready
+    controller.armed = gate != "disarmed"
+    controller.dry_run = gate == "dry_run"
+    if gate == "cooldown":
+        await edge(hass, rig.selected["animal"])
+        assert len(rig.sends) == 1
+    count = len(rig.sends)
+    await edge(hass, rig.selected["animal"])
+    assert len(rig.sends) == count
+    assert controller.outcome == gate
+
+
+async def test_legacy_options_keep_visual_requirement(hass, rig, controller):
+    from custom_components.bark_alerts.const import CONF_REQUIRE_DOG
+
+    options = {**DEFAULTS, CONF_FALLBACK: True}
+    options.pop(CONF_REQUIRE_DOG)
+    hass.config_entries.async_update_entry(controller.entry, options=options)
+    controller._bind_sources()
+    controller.armed = True
+    await edge(hass, rig.selected["animal"])
+    assert not rig.sends and controller.outcome == "dog_not_recent"
+
+
+async def test_animal_fallback_off_ignores_animal_even_without_visual_requirement(
+    hass, rig, controller
+):
+    from custom_components.bark_alerts.const import CONF_REQUIRE_DOG
+
+    hass.config_entries.async_update_entry(
+        controller.entry,
+        options={**DEFAULTS, CONF_FALLBACK: False, CONF_REQUIRE_DOG: False},
+    )
+    controller._bind_sources()
+    controller.armed = True
+    await edge(hass, rig.selected["animal"])
+    assert not rig.sends

@@ -18,7 +18,7 @@ def test_metadata_and_translations():
     manifest = json.loads((PACKAGE / "manifest.json").read_text(encoding="utf-8"))
     hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
     assert manifest["domain"] == "bark_alerts" and manifest["config_flow"] is True
-    assert manifest["requirements"] == [] and manifest["version"] == VERSION == "0.2.3"
+    assert manifest["requirements"] == [] and manifest["version"] == VERSION == "0.2.4"
     assert manifest["integration_type"] == "service"
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert project["project"]["version"] == VERSION

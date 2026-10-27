@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.4
+
+- Add an independent option to require a dog seen on the same camera for
+  animal-sound fallback. Turn it off for dogs outside the camera view; fallback
+  then requires only the animal-sound sensor and may react to other animals.
+- Direct bark detections continue to bypass the visual dog check in all modes.
+- Existing entries retain their current visual requirement until changed.
+  Fallback stays off by default, and all arming/dry-run/cooldown gates remain.
+- Apply the option consistently in setup, reconfiguration, Configure and runtime
+  source binding, including cameras without a dog-occupancy sensor.
+
+
 ## 0.2.3
 
 - Keep optional bark audio history using Frigate's documented HTTP recording and
