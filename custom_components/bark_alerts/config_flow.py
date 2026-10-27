@@ -33,6 +33,7 @@ from .const import (
     CONF_RF_CODE,
     DEFAULTS,
     DOMAIN,
+    MODE_KEEP,
     MODE_LEARNED,
     MODE_RAW,
 )
@@ -141,6 +142,11 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_broadlink(self, user_input=None) -> ConfigFlowResult:
         errors = {}
+        device_field = vol.Required(CONF_BROADLINK)
+        if self._reconfigure:
+            device_field = vol.Required(
+                CONF_BROADLINK, default=self._reconfigure.data[CONF_BROADLINK]
+            )
         if user_input is not None:
             try:
                 broadlink_remote(self.hass, user_input[CONF_BROADLINK])
@@ -166,7 +172,7 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_BROADLINK): selector.DeviceSelector(
+                    device_field: selector.DeviceSelector(
                         selector.DeviceSelectorConfig(integration="broadlink")
                     )
                 }
@@ -176,13 +182,28 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_command(self, user_input=None) -> ConfigFlowResult:
         """Choose a mode before showing only that mode's fields."""
         errors = {}
+        saved_command = None
+        if (
+            self._reconfigure
+            and self._data.get(CONF_BROADLINK) == self._reconfigure.data[CONF_BROADLINK]
+        ):
+            try:
+                saved_command = normalize_command(self._reconfigure.data)
+            except DiscoveryError:
+                pass
+        modes = [MODE_LEARNED, MODE_RAW]
+        if saved_command:
+            modes.insert(0, MODE_KEEP)
         if user_input is not None:
             mode = user_input.get(CONF_COMMAND_MODE)
-            if mode not in (MODE_LEARNED, MODE_RAW):
+            if mode not in modes:
                 errors["base"] = "invalid_command_mode"
             else:
                 for key in (CONF_DEVICE, CONF_COMMAND, CONF_RF_CODE, CONF_BEEP_ONLY):
                     self._data.pop(key, None)
+                if mode == MODE_KEEP:
+                    self._data.update(saved_command)
+                    return await self.async_step_behavior()
                 self._data[CONF_COMMAND_MODE] = mode
                 if mode == MODE_RAW:
                     return await self.async_step_raw_command()
@@ -193,10 +214,10 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        CONF_COMMAND_MODE, default=MODE_LEARNED
+                        CONF_COMMAND_MODE, default=modes[0]
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=[MODE_LEARNED, MODE_RAW],
+                            options=modes,
                             mode=selector.SelectSelectorMode.DROPDOWN,
                             translation_key="command_mode",
                         )

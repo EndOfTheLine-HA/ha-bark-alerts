@@ -216,3 +216,31 @@ async def test_invalid_mode_is_actionable(hass, rig):
     wizard, _ = await command_step(hass, rig)
     result = await wizard.async_step_command({CONF_COMMAND_MODE: "not-a-mode"})
     assert result["errors"] == {"base": "invalid_command_mode"}
+
+
+async def test_new_entry_cannot_keep_a_command(hass, rig):
+    wizard, _ = await command_step(hass, rig)
+    result = await wizard.async_step_command({CONF_COMMAND_MODE: "keep"})
+    assert result["errors"] == {"base": "invalid_command_mode"}
+    assert "keep" not in field(result, CONF_COMMAND_MODE).config["options"]
+
+
+async def test_changed_transmitter_cannot_reuse_saved_command(hass, rig):
+    from .conftest import add_entry
+
+    wizard = flow(hass)
+    wizard._reconfigure = add_entry(
+        hass,
+        DOMAIN,
+        data={
+            CONF_BROADLINK: rig.device.id,
+            CONF_COMMAND_MODE: "raw",
+            CONF_RF_CODE: "b64:" + packet(),
+            CONF_BEEP_ONLY: True,
+        },
+    )
+    wizard._data[CONF_BROADLINK] = "another-transmitter"
+    result = await wizard.async_step_command({CONF_COMMAND_MODE: "keep"})
+    assert result["errors"] == {"base": "invalid_command_mode"}
+    assert "keep" not in field(result, CONF_COMMAND_MODE).config["options"]
+    assert CONF_RF_CODE not in wizard._data

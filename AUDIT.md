@@ -2,6 +2,14 @@
 
 Release review: 2026-10-26
 
+Version 0.2.2 adds a keep-existing-command choice for reconfiguration on the
+same Broadlink transmitter. It validates and reuses only this entry's own
+stored command after the user's explicit choice, without placing an RF code
+in any form or reading Broadlink storage. New setups, changed transmitters
+and unconfirmed/invalid saved commands cannot use that choice. The existing
+transmitter is preselected. Lifecycle tests verify raw and named commands,
+settings and entity IDs survive camera changes with no RF or learning call.
+
 ## Scope and provenance
 
 This is a Home Assistant service integration, not a copy of a private HA

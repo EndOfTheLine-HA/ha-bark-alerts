@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2
+
+- Reconfigure defaults to the existing Broadlink transmitter and offers
+  Keep existing beep command when that transmitter is unchanged.
+  Camera changes no longer require retyping learned names or pasting RF codes.
+- Reuse only the command already stored by this Bark Alerts entry. Raw codes
+  are never prefilled into forms or returned in diagnostics. Changing the
+  transmitter requires explicit command setup and beep-only confirmation.
+
 ## 0.2.1
 
 - Classify Bark Alerts as a service integration so existing monitors appear

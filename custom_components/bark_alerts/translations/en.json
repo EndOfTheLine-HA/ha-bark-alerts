@@ -18,7 +18,7 @@
       },
       "command": {
         "title": "Choose your beep command source",
-        "description": "Use typed names for a command saved by Home Assistant's Broadlink integration, or use your privately captured RF code. Setup does not learn, test, or transmit anything; the entry starts with Armed off and Dry run off.",
+        "description": "Use typed names for a command saved by Home Assistant's Broadlink integration, or use your privately captured RF code. Setup does not learn, test, or transmit anything; the entry starts with Armed off and Dry run off. When reconfiguring with the same Broadlink transmitter, keep the existing beep command to change cameras without re-entering it. Saved RF codes are never shown in this form.",
         "data": {
           "command_mode": "Command source"
         }
@@ -108,7 +108,8 @@
     "command_mode": {
       "options": {
         "learned": "Named Broadlink command (existing or learn after setup)",
-        "raw": "Private captured RF base64 code"
+        "raw": "Private captured RF base64 code",
+        "keep": "Keep existing beep command"
       }
     }
   },

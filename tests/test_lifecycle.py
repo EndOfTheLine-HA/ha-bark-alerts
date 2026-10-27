@@ -1,5 +1,6 @@
 """Use HA's flow manager and entity platforms in an isolated config directory."""
 
+import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EntityCategory
 from homeassistant.helpers import entity_registry as er
@@ -170,6 +171,94 @@ async def test_real_raw_flow_setup_and_reconfigure_to_named(hass, rig):
     await hass.async_block_till_done()
     assert entry.data[CONF_DEVICE] == "New group"
     assert CONF_RF_CODE not in entry.data
+    assert not entry.runtime_data.armed and not entry.runtime_data.dry_run
+    assert not rig.sends and not rig.learns
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("mode", ["raw", "learned"])
+async def test_camera_only_reconfigure_keeps_command_and_entity_ids(hass, rig, mode):
+    from custom_components.bark_alerts.const import (
+        CONF_CAMERA_IDS,
+        CONF_HISTORY,
+        MODE_KEEP,
+    )
+
+    hass.config.components.add("broadlink")
+    assert await async_setup_component(hass, "remote", {})
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    for data in (
+        {CONF_CAMERA: [rig.selected["camera"].entity_id]},
+        {CONF_BROADLINK: rig.device.id},
+    ):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
+    if mode == "raw":
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_COMMAND_MODE: "raw"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_RF_CODE: packet(), CONF_BEEP_ONLY: True}
+        )
+    else:
+        result = await configure_named(hass, result, "Example collar")
+    options = {**DEFAULTS, CONF_HISTORY: True, CONF_REPEATS: 2, CONF_DELAY: 2}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], options)
+    entry = result["result"]
+    await hass.async_block_till_done()
+    original_data = dict(entry.data)
+    ids = {
+        entity.entity_id
+        for entity in er.async_entries_for_config_entry(
+            er.async_get(hass), entry.entry_id
+        )
+    }
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "reconfigure", "entry_id": entry.entry_id}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_CAMERA: [
+                rig.selected["camera"].entity_id,
+                rig.other["camera"].entity_id,
+            ]
+        },
+    )
+    broadlink_field = next(
+        key for key in result["data_schema"].schema if key == CONF_BROADLINK
+    )
+    assert broadlink_field.default() == rig.device.id
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["step_id"] == "command"
+    assert (
+        MODE_KEEP in result["data_schema"].schema[CONF_COMMAND_MODE].config["options"]
+    )
+    assert packet() not in repr(result)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_COMMAND_MODE: MODE_KEEP}
+    )
+    assert result["step_id"] == "behavior"
+    assert packet() not in repr(result)
+    assert dict(entry.data) == original_data  # No writes until final submission.
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["reason"] == "reconfigured"
+    await hass.async_block_till_done()
+    assert set(entry.data[CONF_CAMERA_IDS]) == {
+        rig.selected["camera"].id,
+        rig.other["camera"].id,
+    }
+    for key, value in original_data.items():
+        if key != CONF_CAMERA_IDS:
+            assert entry.data[key] == value
+    assert dict(entry.options) == options
+    assert {
+        entity.entity_id
+        for entity in er.async_entries_for_config_entry(
+            er.async_get(hass), entry.entry_id
+        )
+    } == ids
     assert not entry.runtime_data.armed and not entry.runtime_data.dry_run
     assert not rig.sends and not rig.learns
     await hass.config_entries.async_unload(entry.entry_id)

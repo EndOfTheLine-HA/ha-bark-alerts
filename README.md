@@ -264,6 +264,12 @@ It does not change Frigate recording or retention settings.
 
 ## Upgrading from separate camera monitors
 
+From v0.2.2, Reconfigure preselects the existing Broadlink transmitter. Keep it
+selected and choose **Keep existing beep command** to change cameras
+without re-entering the command. This reuses only this Bark Alerts entry's own
+stored command; no RF code is displayed or read from Broadlink storage. If you
+select another transmitter, explicitly configure and verify its beep command.
+
 Existing entries and entity IDs are preserved and start disarmed after the
 upgrade. To combine monitors for one collar, disarm the old entries, use
 Reconfigure on one entry to select all desired cameras, and disable the other
