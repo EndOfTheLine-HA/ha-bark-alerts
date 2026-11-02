@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from aiohttp import DummyCookieJar, web
+from aiohttp import ClientSession, DummyCookieJar, web
 from aiohttp.test_utils import TestClient, TestServer
 from homeassistant.helpers import entity_registry as er
 
@@ -137,7 +137,9 @@ async def test_login_token_cache_expiry_and_direct_recording(
         hass.config_entries.async_update_entry(
             controller.entry, options={CONF_HISTORY_CONNECTION: settings}
         )
-        monkeypatch.setattr(api, "async_get_clientsession", lambda _: client.session)
+        monkeypatch.setattr(
+            api, "async_create_clientsession", lambda *_args, **_kwargs: client.session
+        )
         adapter = api.FrigateRecordingClient()
         for _ in range(2):
             assert (
@@ -179,9 +181,91 @@ async def test_failed_login_is_bounded_and_never_downloads(
                 }
             },
         )
-        monkeypatch.setattr(api, "async_get_clientsession", lambda _: client.session)
+        monkeypatch.setattr(
+            api, "async_create_clientsession", lambda *_args, **_kwargs: client.session
+        )
         adapter = api.FrigateRecordingClient()
         for _ in range(2):
             with pytest.raises(api.HistoryError, match="^authentication_failed$"):
                 await adapter.download(hass, controller.entry, 100)
     assert calls == ["/api/login"]
+
+
+async def test_login_cookie_is_not_kept_by_the_clients_session(
+    hass, rig, controller, sessions
+):
+    cookies = []
+
+    async def login(request):
+        result = web.Response()
+        result.set_cookie("frigate_token", "token-1", httponly=True)
+        return result
+
+    async def recording(request):
+        cookies.append(request.headers.get("Cookie"))
+        if request.headers.get("Authorization") != "Bearer token-1":
+            return web.Response(status=401)
+        return web.Response(body=b"synthetic video")
+
+    app = web.Application()
+    app.router.add_post("/api/login", login)
+    app.router.add_get("/{tail:.*}", recording)
+    # localhost is a hostname, so aiohttp's default cookie jar keeps the cookie.
+    async with TestClient(TestServer(app, host="localhost")) as client:
+        url = str(client.server.make_url("/"))
+        hass.config_entries.async_update_entry(
+            controller.entry,
+            options={
+                CONF_HISTORY_CONNECTION: {
+                    "url": url,
+                    "username": "viewer",
+                    "password": "synthetic secret",
+                }
+            },
+        )
+        adapter = api.FrigateRecordingClient()
+        assert await adapter.download(hass, controller.entry, 100) == b"synthetic video"
+        assert cookies == [None]
+        [(session, _)] = sessions
+        assert len(session.cookie_jar) == 0
+        adapter.detach()
+
+        # Control: a session with the default jar, as Home Assistant's shared one has,
+        # would send the login cookie on every later request to this host.
+        async with ClientSession() as shared:
+            async with shared.post(f"{url}api/login"):
+                pass
+            async with shared.get(f"{url}other"):
+                pass
+        assert cookies[-1] == "frigate_token=token-1"
+
+
+async def test_client_uses_one_cookieless_session_until_closed(
+    hass, rig, controller, sessions
+):
+    async def recording(request):
+        return web.Response(body=b"synthetic video")
+
+    app = web.Application()
+    app.router.add_get("/{tail:.*}", recording)
+    async with TestClient(TestServer(app)) as client:
+        hass.config_entries.async_update_entry(
+            controller.entry,
+            options={
+                CONF_HISTORY_CONNECTION: {"url": str(client.server.make_url("/"))}
+            },
+        )
+        adapter = api.FrigateRecordingClient()
+        for _ in range(2):
+            assert (
+                await adapter.download(hass, controller.entry, 100)
+                == b"synthetic video"
+            )
+        assert len(sessions) == 1
+        first, kwargs = sessions[0]
+        assert isinstance(kwargs["cookie_jar"], DummyCookieJar)
+        adapter.detach()
+        assert first.closed
+        assert await adapter.download(hass, controller.entry, 100) == b"synthetic video"
+        assert len(sessions) == 2
+        adapter.detach()

@@ -7,12 +7,15 @@ from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
 
 import pytest
+from aiohttp import ClientSession, TCPConnector
 from homeassistant import loader
 from homeassistant.auth import auth_manager_from_config
 from homeassistant.config_entries import ConfigEntries, ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+
+from custom_components.bark_alerts import recording_api
 
 
 def add_entry(hass, domain, *, data=None, options=None, unique_id=None):
@@ -131,3 +134,30 @@ async def rig(hass):
         registry=registry,
         frigate=frigate,
     )
+
+
+@pytest.fixture
+async def sessions(monkeypatch):
+    """Stand in for HA's session factory, which needs network and zeroconf set up.
+
+    Like HA's, each session has its own connector and its close() must not be
+    called (HA replaces it with a warning); release it with detach() instead.
+    Returns the (session, kwargs) pairs created, with the kwargs the code passed.
+    """
+    created, connectors = [], []
+
+    async def forbid_close():
+        raise AssertionError("HA sessions are detached, never closed")
+
+    def create(hass, **kwargs):
+        connector = TCPConnector()
+        connectors.append(connector)
+        session = ClientSession(connector=connector, **kwargs)
+        session.close = forbid_close
+        created.append((session, kwargs))
+        return session
+
+    monkeypatch.setattr(recording_api, "async_create_clientsession", create)
+    yield created
+    for connector in connectors:
+        await connector.close()

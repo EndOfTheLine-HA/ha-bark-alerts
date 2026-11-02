@@ -83,7 +83,8 @@ class BarkHistory:
         self._save_lock = asyncio.Lock()
         self.closed = False
         self.status = "idle"
-        self.fetch = fetch or FrigateRecordingClient().download
+        self.client = FrigateRecordingClient()
+        self.fetch = fetch or self.client.download
         self.extract = extract or extract_audio
 
     async def _io(self, func, *args):
@@ -257,6 +258,7 @@ class BarkHistory:
         self.stop()
         if self.task:
             await asyncio.gather(self.task, return_exceptions=True)
+        self.client.detach()
         for row in self.items:
             if row["status"] == "pending":
                 row["status"] = "interrupted"

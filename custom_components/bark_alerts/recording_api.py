@@ -9,9 +9,9 @@ from __future__ import annotations
 import asyncio
 import time
 
-from aiohttp import ClientError
+from aiohttp import ClientError, DummyCookieJar
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from yarl import URL
 
 from .const import CONF_CAMERA_ID, CONF_HISTORY_CONNECTION
@@ -79,6 +79,31 @@ class FrigateRecordingClient:
         self._token = None
         self._destination = None
         self._retry_after = 0
+        self._session = None
+
+    def _get_session(self, hass):
+        """Return this client's own session, created on first use.
+
+        Frigate answers the login with a frigate_token cookie. The token is read
+        from the response and sent as a Bearer header, so no cookie is ever kept:
+        in Home Assistant's shared session that cookie would be attached to every
+        other integration's request to the same hostname.
+        """
+        if self._session is None or self._session.closed:
+            self._session = async_create_clientsession(
+                hass, cookie_jar=DummyCookieJar()
+            )
+        return self._session
+
+    def detach(self):
+        """Release the session; a later download creates a new one.
+
+        Home Assistant's sessions share its connector and must be detached, not
+        closed: it replaces close() with a warning.
+        """
+        session, self._session = self._session, None
+        if session is not None:
+            session.detach()
 
     async def _login(self, session, base, settings):
         if time.monotonic() < self._retry_after:
@@ -129,7 +154,7 @@ class FrigateRecordingClient:
             / str(timestamp + POST_SECONDS)
             / "clip.mp4"
         )
-        session = async_get_clientsession(hass)
+        session = self._get_session(hass)
         try:
             async with asyncio.timeout(45):
                 for attempt in range(2):

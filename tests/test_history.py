@@ -68,6 +68,13 @@ async def test_retains_latest_25_and_survives_restart(archive):
     assert json.loads((other.folder / "index.json").read_text()) == []
 
 
+async def test_closing_history_releases_the_recording_session(archive, sessions):
+    session = archive.client._get_session(archive.hass)
+    await archive.close()
+    assert session.closed
+    assert archive.client._session is None
+
+
 async def test_capture_failure_does_not_claim_audio(archive):
     archive.fetch.side_effect = HistoryError("recording_unavailable")
     clip = archive.add(time.time() - 60)
@@ -196,7 +203,9 @@ async def test_download_errors_are_bounded_and_private(
             options={"history_connection": {"url": str(client.server.make_url("/"))}},
         )
         monkeypatch.setattr(
-            history_module, "async_get_clientsession", lambda _: client.session
+            history_module,
+            "async_create_clientsession",
+            lambda *_args, **_kwargs: client.session,
         )
         monkeypatch.setattr(history_module, "MAX_DOWNLOAD", 100)
         with pytest.raises(HistoryError) as error:
@@ -224,7 +233,9 @@ async def test_streamed_download_limit(hass, rig, controller, monkeypatch):
             options={"history_connection": {"url": str(client.server.make_url("/"))}},
         )
         monkeypatch.setattr(
-            history_module, "async_get_clientsession", lambda _: client.session
+            history_module,
+            "async_create_clientsession",
+            lambda *_args, **_kwargs: client.session,
         )
         monkeypatch.setattr(history_module, "MAX_DOWNLOAD", 100)
         with pytest.raises(HistoryError, match="recording_too_large"):
@@ -314,7 +325,9 @@ async def test_download_uses_camera_that_triggered_event(
             options={"history_connection": {"url": str(client.server.make_url("/"))}},
         )
         monkeypatch.setattr(
-            history_module, "async_get_clientsession", lambda _: client.session
+            history_module,
+            "async_create_clientsession",
+            lambda *_args, **_kwargs: client.session,
         )
         assert (
             await history_module.FrigateRecordingClient().download(
