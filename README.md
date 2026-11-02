@@ -279,7 +279,9 @@ use separate monitors for different servers, or leave history off.
 
 Bark Alerts calls `/api/login` for a JWT and the documented
 `/api/{camera}/start/{start}/end/{end}/clip.mp4` endpoint. Tokens stay in memory,
-expire naturally, and are renewed once on an unauthorized response. Requests
+expire naturally, and are renewed once on an unauthorized response. The login
+and the download use a session of Bark Alerts' own that keeps no cookies, so
+Frigate's login cookie is never shared with other integrations. Requests
 never follow redirects. Login failures have a one-minute backoff. The connection
 is tested by the first capture; failures appear as a capture status and do not
 affect collar dispatch. No settings are read from Frigate's config entries,

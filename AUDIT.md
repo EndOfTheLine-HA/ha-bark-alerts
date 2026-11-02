@@ -19,6 +19,15 @@ Tests cover both modes, missing audio/dog sensors, legacy options and continued
 arming, dry-run and cooldown enforcement. No household configuration is changed
 by publishing the option.
 
+Version 0.2.5 keeps the Frigate login cookie out of Home Assistant's shared HTTP
+session. The history client now has a session of its own with a cookie jar that
+stores nothing, used for both the login and the clip download, and releases it
+when the monitor unloads or the history is cleared. The token was already read
+from the login response and sent as a Bearer header, so behavior is otherwise
+unchanged. Tests cover the discarded cookie (with a control showing that a
+default jar would keep it), one reused session, and the release on close. No
+household configuration is changed by publishing the fix.
+
 ## Scope and provenance
 
 This is a Home Assistant service integration, not a copy of a private HA

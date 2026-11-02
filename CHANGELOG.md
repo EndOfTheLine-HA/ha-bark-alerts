@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.5
+
+- Bark audio history now uses a session of its own for the Frigate login and the
+  clip download, with no cookie jar. Home Assistant's shared session kept
+  Frigate's `frigate_token` cookie for host-name URLs and could attach it to
+  other integrations' requests to the same host. The token is still held only in
+  memory and sent as a Bearer header.
+- The session is released when the monitor is unloaded or the history is
+  cleared, and the next capture creates a new one.
+- No setting, entity or behavior changes for users; existing entries and clips
+  are untouched.
+
+
 ## 0.2.4
 
 - Add an independent option to require a dog seen on the same camera for
