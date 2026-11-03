@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import math
 import re
+import shutil
 import time
 from collections import deque
 from pathlib import Path
@@ -18,10 +20,35 @@ from .recording_api import (
     HistoryError,
 )
 
+_LOGGER = logging.getLogger(__name__)
 LIMIT = 25
 MAX_AUDIO = 400_000
 SETTLE_SECONDS = 15
 SAFE_ID = re.compile(r"^[a-f0-9]{32}$")
+
+
+def history_directory(hass) -> Path:
+    return Path(hass.config.path(".storage", "bark_alerts_history"))
+
+
+def remove_history_folder(data_directory: Path, entry_id: str) -> None:
+    """Only delete one monitor's folder directly inside the managed directory."""
+    folder = data_directory / entry_id
+    if (
+        folder.name != entry_id
+        or folder.is_symlink()
+        or folder.resolve().parent != data_directory.resolve()
+    ):
+        _LOGGER.warning("Not removing unmanaged bark audio folder: %s", entry_id)
+        return
+    try:
+        shutil.rmtree(folder)
+    except FileNotFoundError:
+        pass
+    except OSError as err:
+        _LOGGER.warning(
+            "Saved bark audio for removed monitor %s was not deleted: %s", entry_id, err
+        )
 
 
 async def extract_audio(source: Path, target: Path, binary: str = "ffmpeg") -> None:
@@ -74,9 +101,7 @@ class BarkHistory:
 
     def __init__(self, hass, entry, notify, *, fetch=None, extract=None):
         self.hass, self.entry, self.notify = hass, entry, notify
-        self.folder = Path(
-            hass.config.path(".storage", "bark_alerts_history", entry.entry_id)
-        )
+        self.folder = history_directory(hass) / entry.entry_id
         self.items: list[dict] = []
         self.pending = deque()
         self.task = None
