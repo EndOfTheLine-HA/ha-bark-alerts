@@ -362,6 +362,9 @@ class BarkAlertsFlow(ConfigFlow, domain=DOMAIN):
                 self._pending_options = options
                 if options[CONF_HISTORY]:
                     return await self.async_step_history()
+                # Turning capture off must not forget the saved connection.
+                if connection := self._options.get(CONF_HISTORY_CONNECTION):
+                    options[CONF_HISTORY_CONNECTION] = connection
                 return self._finish(options)
         return self.async_show_form(
             step_id="behavior",
@@ -435,7 +438,11 @@ class BarkAlertsOptionsFlow(OptionsFlow):
                 if user_input.get(CONF_HISTORY):
                     self._pending_options = user_input
                     return await self.async_step_history()
-                return self.async_create_entry(title="", data=user_input)
+                # Turning capture off must not forget the saved connection.
+                data = dict(user_input)
+                if connection := self.config_entry.options.get(CONF_HISTORY_CONNECTION):
+                    data[CONF_HISTORY_CONNECTION] = connection
+                return self.async_create_entry(title="", data=data)
         return self.async_show_form(
             step_id="init",
             data_schema=behavior_schema(dict(self.config_entry.options)),
