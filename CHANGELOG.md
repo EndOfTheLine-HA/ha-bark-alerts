@@ -5,8 +5,8 @@
 - Removing a monitor from Home Assistant now deletes that monitor's saved audio
   folder, including its clips. Other monitors keep theirs. Disabling or reloading
   a monitor keeps its clips.
-- Remove monitors before uninstalling the integration: Home Assistant cannot run
-  this cleanup once the integration's files are gone.
+- Remove monitors before uninstalling. Once Home Assistant can no longer load
+  the integration, this cleanup cannot run.
 - Folders left behind by monitors removed on an earlier version are not cleaned
   up by this release.
 - The README install section now leads with searching in HACS, since Bark Alerts
