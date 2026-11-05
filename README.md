@@ -257,6 +257,10 @@ recordings and cancels pending captures without sending RF.
   `/config/.storage/bark_alerts_history/<entry_id>/` folder, outside public `www`.
   It never reads Broadlink's private storage. Audio survives restarts; interrupted
   captures are marked and are not retried. Turning capture off keeps old clips.
+- Removing a monitor from Home Assistant deletes that monitor's folder and its
+  clips; other monitors keep theirs. Disabling a monitor keeps its clips. Remove
+  monitors before uninstalling the integration: Home Assistant cannot run this
+  cleanup once the integration's files are gone.
 - Playback requires HA authentication or a temporary signed media URL. Each
   clip is at most 400 KB (about 10 MB per monitor); temporary video downloads
   are capped at 20 MiB and deleted after processing. Recordings may contain
@@ -304,9 +308,10 @@ Existing entries and entity IDs are preserved and start disarmed after the
 upgrade. To combine monitors for one collar, disarm the old entries, use
 Reconfigure on one entry to select all desired cameras, and disable the other
 entries in HA. Their stored histories remain separate; no recordings or entries
-are automatically deleted or combined. One multi-camera monitor provides the
-shared cooldown. Separate entries and external automations have independent
-cooldowns, so avoid arming duplicates that target the same collar.
+are automatically deleted or combined. Removing an entry instead of disabling it
+deletes its recordings. One multi-camera monitor provides the shared cooldown.
+Separate entries and external automations have independent cooldowns, so avoid
+arming duplicates that target the same collar.
 
 ## Development and verification
 
