@@ -77,20 +77,10 @@ requires that camera's enabled `dog` occupancy sensor.
 
 ## Install with HACS
 
-Version **0.2.1** lists Bark Alerts under **Settings > Devices & services >
-Integrations**. Existing monitors and entity IDs are preserved when upgrading
-from the helper classification; no removal or re-creation is needed. Restart
-Home Assistant after updating. Armed and Dry run remain configuration controls.
+Bark Alerts is in the default HACS catalog.
 
-Version **0.2.0** adds multi-camera monitoring, explicit dry-run notifications
-and optional bark audio history. It retains typed command names and does not
-read Broadlink's private storage. It includes the 0.1.1 `B1` packet fix.
-See [CHANGELOG.md](CHANGELOG.md). After updating, restart Home Assistant and
-reopen setup; an already-open flow uses old code.
-
-1. Add `https://github.com/EndOfTheLine-HA/ha-bark-alerts` to HACS custom
-   repositories, category **Integration**, and download **Bark Alerts**.
-2. Restart Home Assistant.
+1. Open HACS and search for **Bark Alerts**.
+2. Select it, choose **Download**, then restart Home Assistant.
 3. Add **Bark Alerts** through **Settings → Devices & services**.
 4. Choose your **Frigate cameras**, then your **Broadlink device**.
 5. Choose a command source:
@@ -106,11 +96,18 @@ reopen setup; an already-open flow uses old code.
    is your acknowledgement, not an automatic check of the RF command. Verify the
    receiver's actual response off the animal before enabling automatic operation.
 
+If it does not appear in HACS yet (a new default listing can take several hours to
+show up), add `https://github.com/EndOfTheLine-HA/ha-bark-alerts` as a custom
+repository of type **Integration** and download it from there.
+
 The wizard does not send, learn, or physically test anything. Bark Alerts does
 not inspect Broadlink's private storage or automatically list learned commands.
 Enter the names exactly as Home Assistant knows them. Commands saved only in the
 Broadlink app are not available to Home Assistant by name. A name does not prove
 a command is RF-compatible or beep-only; verify its effect before confirming it.
+
+After updating, restart Home Assistant and reopen setup; an already-open flow
+uses old code. See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 
 ## First use and controls
 
@@ -329,5 +326,4 @@ Its 256/512-pixel PNG renders are included for HACS branding; it is not an
 official manufacturer logo.
 
 MIT licensed; community software, not affiliated with Frigate, Broadlink, or any
-collar manufacturer. HACS custom-repository installation and default-catalog
-inclusion are separate publication stages.
+collar manufacturer.
