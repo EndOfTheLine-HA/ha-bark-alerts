@@ -186,7 +186,8 @@ Neither Frigate config-entry data nor its runtime client is read. Registry
 identifiers still resolve the selected camera name as documented above.
 API credentials are never prefilled, copied from another entry, or included in
 diagnostics. A blank password preserves a value only for the unchanged URL and
-username. TLS verification defaults on, redirects are refused, downloads are
+username. Turning capture off keeps the saved connection and makes no request with
+it; removing the monitor erases it. TLS verification defaults on, redirects are refused, downloads are
 bounded, expired tokens retry once, and failed logins back off for one minute.
 History is off by default; legacy entries need explicit API configuration to
 resume captures, while existing clips remain accessible. Tests include a local

@@ -292,9 +292,11 @@ On upgrade from v0.2.0-0.2.2, existing clips remain playable. If history was
 enabled, open Configure and supply the API connection to resume capture; old
 connections are not copied automatically. Missing settings report
 `connection_required`. A blank password in the connection form preserves the
-saved password only when the URL and username are unchanged. Passwords are
-masked, never prefilled, and omitted from diagnostics; HA config backups can
-contain them and must remain private. FFmpeg must be available on the host PATH.
+saved password only when the URL and username are unchanged. Turning capture off
+keeps the saved connection but stops using it, so turning capture back on needs no
+new password; removing the monitor erases it. Passwords are masked, never prefilled,
+and omitted from diagnostics; HA config backups can contain them and must remain
+private. FFmpeg must be available on the host PATH.
 
 ## Upgrading from separate camera monitors
 
