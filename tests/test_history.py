@@ -2,7 +2,10 @@
 
 import asyncio
 import json
+import shutil
+import threading
 import time
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -11,6 +14,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from homeassistant.components.media_source import Unresolvable
 from homeassistant.setup import async_setup_component
 
+from custom_components import bark_alerts
 from custom_components.bark_alerts import recording_api as history_module
 from custom_components.bark_alerts.const import CONF_HISTORY, DOMAIN
 from custom_components.bark_alerts.history import BarkHistory, HistoryError
@@ -337,3 +341,115 @@ async def test_download_uses_camera_that_triggered_event(
         )
     camera_key = selected.unique_id.split(":camera:", 1)[1]
     assert paths[0].startswith(f"/api/{camera_key}/start/")
+
+
+def storage(hass, *parts):
+    return Path(hass.config.path(".storage", *parts))
+
+
+def saved_audio(hass, entry_id):
+    folder = storage(hass, "bark_alerts_history", entry_id)
+    folder.mkdir(parents=True)
+    (folder / "index.json").write_text("[]")
+    (folder / f"{'a' * 32}.wav").write_bytes(b"RIFF" + bytes(200))
+    return folder
+
+
+def outside_folder(hass):
+    folder = storage(hass, "outside")
+    folder.mkdir(parents=True)
+    (folder / "keep").write_text("not Bark Alerts data")
+    return folder
+
+
+async def test_removing_unloaded_monitor_deletes_only_its_folder(hass):
+    # A disabled monitor has no runtime data, but its audio is still on disk.
+    entry = add_entry(hass, DOMAIN)
+    folder, other = saved_audio(hass, entry.entry_id), saved_audio(hass, "other")
+    await hass.config_entries.async_remove(entry.entry_id)
+    assert not folder.exists()
+    assert (other / "index.json").is_file()
+    assert (other / f"{'a' * 32}.wav").is_file()
+
+
+@pytest.mark.parametrize("other_monitor", [False, True])
+async def test_remove_entry_tolerates_missing_folder(hass, caplog, other_monitor):
+    if other_monitor:
+        other = saved_audio(hass, "other")
+    await bark_alerts.async_remove_entry(hass, add_entry(hass, DOMAIN))
+    assert "bark audio" not in caplog.text
+    if other_monitor:
+        assert (other / "index.json").is_file()
+
+
+async def test_remove_entry_file_work_stays_off_the_event_loop(hass, monkeypatch):
+    entry = add_entry(hass, DOMAIN)
+    folder = saved_audio(hass, entry.entry_id)
+    threads = []
+
+    def spy(real):
+        def wrapper(*args, **kwargs):
+            threads.append(threading.get_ident())
+            return real(*args, **kwargs)
+
+        return wrapper
+
+    monkeypatch.setattr(shutil, "rmtree", spy(shutil.rmtree))
+    monkeypatch.setattr(Path, "resolve", spy(Path.resolve))
+    monkeypatch.setattr(Path, "is_symlink", spy(Path.is_symlink))
+    await bark_alerts.async_remove_entry(hass, entry)
+    monkeypatch.undo()
+    assert not folder.exists()
+    assert threads and threading.get_ident() not in threads
+
+
+@pytest.mark.parametrize(
+    "entry_id", ["..", ".", "", "monitor/../other", "../outside", "{outside}"]
+)
+async def test_remove_entry_refuses_ids_outside_its_folder(hass, caplog, entry_id):
+    other, outside = saved_audio(hass, "other"), outside_folder(hass)
+    entry = SimpleNamespace(entry_id=entry_id.format(outside=outside))
+    await bark_alerts.async_remove_entry(hass, entry)
+    assert (other / f"{'a' * 32}.wav").is_file()
+    assert (outside / "keep").is_file()
+    assert "Not removing" in caplog.text
+
+
+@pytest.mark.parametrize("target", ["outside", "other"])
+async def test_remove_entry_refuses_symlinked_folder(hass, caplog, target):
+    entry = add_entry(hass, DOMAIN)
+    other, outside = saved_audio(hass, "other"), outside_folder(hass)
+    link = storage(hass, "bark_alerts_history", entry.entry_id)
+    try:
+        link.symlink_to(
+            outside if target == "outside" else other, target_is_directory=True
+        )
+    except OSError:
+        pytest.skip("This system cannot create symlinks")
+    await bark_alerts.async_remove_entry(hass, entry)
+    assert link.is_symlink()
+    assert (outside / "keep").is_file()
+    assert (other / f"{'a' * 32}.wav").is_file()
+    assert "Not removing" in caplog.text
+
+
+async def test_remove_entry_does_not_follow_links_inside_the_folder(hass):
+    entry = add_entry(hass, DOMAIN)
+    folder, outside = saved_audio(hass, entry.entry_id), outside_folder(hass)
+    try:
+        (folder / "link").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("This system cannot create symlinks")
+    await bark_alerts.async_remove_entry(hass, entry)
+    assert not folder.exists()
+    assert (outside / "keep").is_file()
+
+
+async def test_remove_entry_reports_audio_it_could_not_delete(hass, caplog):
+    entry = add_entry(hass, DOMAIN)
+    blocked = storage(hass, "bark_alerts_history", entry.entry_id)
+    blocked.parent.mkdir(parents=True)
+    blocked.write_text("not a folder")
+    await bark_alerts.async_remove_entry(hass, entry)
+    assert blocked.is_file()
+    assert "was not deleted" in caplog.text

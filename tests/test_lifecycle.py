@@ -1,5 +1,9 @@
 """Use HA's flow manager and entity platforms in an isolated config directory."""
 
+import asyncio
+import time
+from unittest.mock import AsyncMock
+
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EntityCategory
@@ -21,6 +25,7 @@ from custom_components.bark_alerts.const import (
     DOMAIN,
 )
 
+from .test_history import fake_extract
 from .test_validation import packet
 
 
@@ -352,3 +357,69 @@ async def test_audio_only_fallback_setup_and_options_without_dog_sensor(hass, ri
     assert entry.options[CONF_REQUIRE_DOG] is False
     assert not rig.sends and not rig.learns
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def create_monitor(hass, rig, camera):
+    hass.config.components.add("broadlink")
+    assert await async_setup_component(hass, "remote", {})
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    for data in (
+        {CONF_CAMERA: [camera["camera"].entity_id]},
+        {CONF_BROADLINK: rig.device.id},
+    ):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
+    result = await configure_named(hass, result, "Example collar")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    await hass.async_block_till_done()
+    assert result["result"].state is ConfigEntryState.LOADED
+    return result["result"]
+
+
+async def saved_clip(entry):
+    history = entry.runtime_data.history
+    history.fetch, history.extract = AsyncMock(return_value=b"video"), fake_extract
+    clip = history.add(time.time() - 60)
+    await history.task
+    assert history.clip_path(clip).is_file()
+    return history.clip_path(clip)
+
+
+async def test_removing_monitor_deletes_only_its_saved_audio(hass, rig):
+    entry = await create_monitor(hass, rig, rig.selected)
+    other = await create_monitor(hass, rig, rig.other)
+    clip, kept = await saved_clip(entry), await saved_clip(other)
+    folder = entry.runtime_data.history.folder
+
+    # Reloading keeps audio; only removing the monitor deletes it.
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert clip.is_file()
+
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+    assert not folder.exists()
+    assert other.state is ConfigEntryState.LOADED
+    assert other.runtime_data.history.clip_path(kept.stem) == kept
+    assert kept.is_file()
+    assert not rig.sends and not rig.learns
+    await hass.config_entries.async_unload(other.entry_id)
+
+
+async def test_removing_monitor_mid_capture_leaves_no_files(hass, rig):
+    entry = await create_monitor(hass, rig, rig.selected)
+    history = entry.runtime_data.history
+    started = asyncio.Event()
+
+    async def fetch(*args):
+        started.set()
+        await asyncio.Event().wait()
+
+    history.fetch = fetch
+    history.add(time.time() - 60)
+    await started.wait()
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+    assert not history.folder.exists()
+    assert not rig.sends and not rig.learns

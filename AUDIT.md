@@ -158,11 +158,21 @@ Each episode records its triggering camera's registry ID locally; playback
 does not expose credentials or RF packets. Home audio may contain conversations
 and can be included in backups. Capture is opt-in and defaults to off.
 
-Tests cover retention, restart, clear/unload cancellation, malformed indices,
-HTTP authentication, streamed-download limits, per-camera download routing,
-disarmed/dry-run/cooldown outcomes, simultaneous-camera suppression, same-camera
-dog gating, and real HA notification dispatch/removal. RF services and recording
-responses are synthetic. Version 0.2.3 removes the private Frigate runtime-client
+Removing a config entry deletes that entry's folder under
+`.storage/bark_alerts_history` in an executor job, after HA has unloaded the
+entry and its capture worker has stopped. A symlink, or an ID that does not
+resolve directly inside that directory, is refused with a warning. A missing
+folder is not an error, a failed deletion is logged, and other entries' folders
+are not touched. Remove monitors before uninstalling. Once Home Assistant can no
+longer load the integration, this cleanup cannot run; the README says the same.
+Pressing Clear while a monitor is being removed can recreate its folder holding
+only an empty index, with no audio.
+
+Tests cover retention, restart, clear/unload cancellation, entry removal,
+malformed indices, HTTP authentication, streamed-download limits, per-camera
+download routing, disarmed/dry-run/cooldown outcomes, simultaneous-camera
+suppression, same-camera dog gating, and real HA notification dispatch/removal.
+RF services and recording responses are synthetic. Version 0.2.3 removes the private Frigate runtime-client
 adapter. Recording access uses only an explicitly configured connection owned
 by Bark Alerts and Frigate's documented HTTP login and recording endpoints.
 Neither Frigate config-entry data nor its runtime client is read. Registry

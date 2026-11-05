@@ -14,7 +14,7 @@ from .discovery import (
     fallback_sources_available,
     monitor_sources,
 )
-from .history import BarkHistory
+from .history import BarkHistory, history_directory, remove_history_folder
 from .media_source import register_history_view
 
 type BarkAlertsConfigEntry = ConfigEntry[BarkAlertsController]
@@ -53,6 +53,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: BarkAlertsConfigEntry) 
     if entry.runtime_data.history:
         await entry.runtime_data.history.close()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: BarkAlertsConfigEntry) -> None:
+    """Delete only this monitor's saved audio when it is removed from HA."""
+    await hass.async_add_executor_job(
+        remove_history_folder, history_directory(hass), entry.entry_id
+    )
 
 
 async def _async_reload(hass: HomeAssistant, entry: BarkAlertsConfigEntry) -> None:
