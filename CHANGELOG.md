@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.6
+
+- Removing a monitor from Home Assistant now deletes that monitor's saved audio
+  folder, including its clips. Other monitors keep theirs. Disabling or reloading
+  a monitor keeps its clips.
+- Remove monitors before uninstalling the integration: Home Assistant cannot run
+  this cleanup once the integration's files are gone.
+- Folders left behind by monitors removed on an earlier version are not cleaned
+  up by this release.
+- The README install section now leads with searching in HACS, since Bark Alerts
+  is in the default catalog.
+
+
 ## 0.2.5
 
 - Bark audio history now uses a session of its own for the Frigate login and the
