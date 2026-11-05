@@ -88,6 +88,7 @@ class BarkAlertsController:
         self._bindings_valid = True
         self._state_unsub: Callable[[], None] | None = None
         self._unsubs: list[Callable[[], None]] = []
+        self._ha_stop_unsub: Callable[[], None] | None = None
         self._tasks: set[asyncio.Task] = set()
         self._watched: set[str] = set()
         self.history = None
@@ -133,16 +134,20 @@ class BarkAlertsController:
     @callback
     def async_start(self) -> None:
         self._bind_sources()
-        self._unsubs.extend(
-            [
-                self.hass.bus.async_listen(
-                    er.EVENT_ENTITY_REGISTRY_UPDATED, self._registry_changed
-                ),
-                self.hass.bus.async_listen_once(
-                    EVENT_HOMEASSISTANT_STOP, lambda _: self.async_stop()
-                ),
-            ]
+        self._unsubs.append(
+            self.hass.bus.async_listen(
+                er.EVENT_ENTITY_REGISTRY_UPDATED, self._registry_changed
+            )
         )
+        self._ha_stop_unsub = self.hass.bus.async_listen_once(
+            EVENT_HOMEASSISTANT_STOP, self._async_ha_stopping
+        )
+
+    @callback
+    def _async_ha_stopping(self, _event: Event) -> None:
+        # HA already removed this one-time listener before calling it.
+        self._ha_stop_unsub = None
+        self.async_stop()
 
     @callback
     def _bind_sources(self) -> None:
@@ -478,6 +483,9 @@ class BarkAlertsController:
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
+        if self._ha_stop_unsub:
+            self._ha_stop_unsub()
+            self._ha_stop_unsub = None
         for task in tuple(self._tasks):
             task.cancel()
         self._tasks.clear()

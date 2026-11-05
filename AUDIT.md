@@ -28,6 +28,13 @@ unchanged. Tests cover the discarded cookie (with a control showing that a
 default jar would keep it), one reused session, and the release on close. No
 household configuration is changed by publishing the fix.
 
+Version 0.2.6 deletes a monitor's saved audio folder when the monitor is removed
+(described under the history section below) and leads the README install steps
+with the default HACS catalog. It also stops each monitor on the event loop when
+Home Assistant shuts down; the previous listener ran on a worker thread, where a
+dry-run warning's dismissal raised before the monitor had stopped. No household
+configuration is changed by publishing the release.
+
 ## Scope and provenance
 
 This is a Home Assistant service integration, not a copy of a private HA

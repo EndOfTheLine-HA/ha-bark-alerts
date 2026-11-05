@@ -3,7 +3,7 @@
 from homeassistant.const import Platform
 
 DOMAIN = "bark_alerts"
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR, Platform.SWITCH]
 
 CONF_CAMERA = "camera"
