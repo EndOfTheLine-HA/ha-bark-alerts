@@ -262,8 +262,8 @@ recordings and cancels pending captures without sending RF.
   captures are marked and are not retried. Turning capture off keeps old clips.
 - Removing a monitor from Home Assistant deletes that monitor's folder and its
   clips; other monitors keep theirs. Disabling a monitor keeps its clips. Remove
-  monitors before uninstalling the integration: Home Assistant cannot run this
-  cleanup once the integration's files are gone.
+  monitors before uninstalling. Once Home Assistant can no longer load the
+  integration, this cleanup cannot run.
 - Playback requires HA authentication or a temporary signed media URL. Each
   clip is at most 400 KB (about 10 MB per monitor); temporary video downloads
   are capped at 20 MiB and deleted after processing. Recordings may contain

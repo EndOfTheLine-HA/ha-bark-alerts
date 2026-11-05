@@ -163,9 +163,10 @@ Removing a config entry deletes that entry's folder under
 entry and its capture worker has stopped. A symlink, or an ID that does not
 resolve directly inside that directory, is refused with a warning. A missing
 folder is not an error, a failed deletion is logged, and other entries' folders
-are not touched. HA cannot call this cleanup if the integration's files were
-uninstalled before the entry was removed; the README tells users to remove
-monitors first.
+are not touched. Remove monitors before uninstalling. Once Home Assistant can no
+longer load the integration, this cleanup cannot run; the README says the same.
+Pressing Clear while a monitor is being removed can recreate its folder holding
+only an empty index, with no audio.
 
 Tests cover retention, restart, clear/unload cancellation, entry removal,
 malformed indices, HTTP authentication, streamed-download limits, per-camera
