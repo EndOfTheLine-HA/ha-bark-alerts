@@ -35,6 +35,13 @@ Home Assistant shuts down; the previous listener ran on a worker thread, where a
 dry-run warning's dismissal raised before the monitor had stopped. No household
 configuration is changed by publishing the release.
 
+Version 0.2.7 keeps the saved Frigate connection when audio history is turned
+off, in both the options form and reconfiguration; before, it was erased and had
+to be entered again. While capture is off the connection is stored but unused,
+and removing the monitor erases it. A blank password is still kept only for the
+same URL and username. No household configuration is changed by publishing the
+release.
+
 ## Scope and provenance
 
 This is a Home Assistant service integration, not a copy of a private HA
