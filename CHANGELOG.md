@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.7
+
+- Turning audio history off no longer erases the saved Frigate connection. Before,
+  turning it back on meant entering the URL, username and password again. This
+  applied to both the options form and reconfiguring a monitor.
+- The password stays stored while capture is off, in the same Home Assistant
+  storage as when it is on, and no request is made with it. Removing the monitor
+  erases it.
+- No other setting, entity or behavior changes; existing entries and clips are
+  untouched.
+
+
 ## 0.2.6
 
 - Removing a monitor from Home Assistant now deletes that monitor's saved audio
